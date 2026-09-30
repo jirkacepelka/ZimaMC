@@ -4,7 +4,14 @@ import { BACKUPS_DIR, DATA_DIR, HOST, PORT, SERVERS_DIR, VERSION } from "./confi
 
 for (const d of [DATA_DIR, SERVERS_DIR, BACKUPS_DIR]) fs.mkdirSync(d, { recursive: true });
 
-const { app, servers, backups } = await buildApp();
+const { app, servers, backups, store } = await buildApp();
+
+// Password recovery: set RESET_PASSWORD=true in the app's settings and restart.
+if (/^(1|true|yes)$/i.test(process.env.RESET_PASSWORD ?? "") && store.settings.auth) {
+  delete store.settings.auth;
+  store.save();
+  console.warn("RESET_PASSWORD is set: the password was removed. Open ZimaMC to choose a new one, then remove the variable.");
+}
 
 /** Run a task now and then every `ms`, never overlapping itself. */
 function every(ms: number, name: string, fn: () => Promise<unknown>) {

@@ -1,0 +1,57 @@
+# ZimaMC for ZimaOS / CasaOS.
+# Install: App Store → "+" (Custom install) → Import → paste this file.
+name: zimamc
+services:
+  zimamc:
+    image: ghcr.io/jirkacepelka/zimamc:latest
+    container_name: zimamc
+    restart: unless-stopped
+    # Host network: lets ZimaMC open router ports (UPnP) and reach the servers it starts.
+    network_mode: host
+    environment:
+      PORT: "8765"
+      # The data folder is mounted at the same path as on the host, because the
+      # Minecraft servers run as separate containers that mount it too.
+      DATA_DIR: /DATA/AppData/zimamc
+      TZ: Europe/Prague
+    volumes:
+      - type: bind
+        source: /var/run/docker.sock
+        target: /var/run/docker.sock
+      - type: bind
+        source: /DATA/AppData/zimamc
+        target: /DATA/AppData/zimamc
+    x-casaos:
+      envs:
+        - container: TZ
+          description:
+            en_us: Time zone
+        - container: RESET_PASSWORD
+          description:
+            en_us: Set to true and restart to choose a new password
+      volumes:
+        - container: /DATA/AppData/zimamc
+          description:
+            en_us: Worlds, plugins and backups
+x-casaos:
+  architectures:
+    - amd64
+    - arm64
+  main: zimamc
+  author: jirkacepelka
+  developer: jirkacepelka
+  category: Games
+  icon: https://raw.githubusercontent.com/jirkacepelka/ZimaMC/main/docs/icon.png
+  screenshot_link:
+    - https://raw.githubusercontent.com/jirkacepelka/ZimaMC/main/docs/screenshot-dashboard.png
+  tagline:
+    en_us: Your own Minecraft server in a few clicks
+    cs_cz: Vlastní Minecraft server na pár kliknutí
+  description:
+    en_us: Create and run Minecraft servers (Paper, Vanilla, Fabric, Forge) with plugins and mods from Modrinth, memory and CPU limits, backups and an easy way to let friends join.
+    cs_cz: Vytvářej a spouštěj Minecraft servery (Paper, Vanilla, Fabric, Forge) s pluginy a mody z Modrinthu, limity paměti a procesoru, zálohami a snadným připojením pro kamarády.
+  title:
+    en_us: ZimaMC
+  index: /
+  port_map: "8765"
+  scheme: http

@@ -115,7 +115,9 @@ export class DockerManager {
         Memory: memBytes,
         MemorySwap: memBytes,
         NanoCpus: Math.round(s.cpus * 1e9),
-        RestartPolicy: s.autoStart ? { Name: "unless-stopped" } : { Name: "no" },
+        // Retry a crash a few times, then stay down so the UI can show "crashed".
+        // Starting after a reboot is handled by ZimaMC itself (autoStart).
+        RestartPolicy: { Name: "on-failure", MaximumRetryCount: 3 },
         LogConfig: { Type: "json-file", Config: { "max-size": "10m", "max-file": "3" } },
       },
     });
