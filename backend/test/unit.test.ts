@@ -121,6 +121,8 @@ describe("minecraft", () => {
   });
 
   it("picks the right Java", () => {
+    expect(javaTagFor("26.3")).toBe("java25");
+    expect(javaTagFor("26.1")).toBe("java25");
     expect(javaTagFor("1.21.8")).toBe("java21");
     expect(javaTagFor("1.20.5")).toBe("java21");
     expect(javaTagFor("1.20.4")).toBe("java17");

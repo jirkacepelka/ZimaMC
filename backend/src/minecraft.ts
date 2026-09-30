@@ -30,6 +30,8 @@ export function compareVersions(a: string, b: string) {
 
 /** Pick the Java version the given Minecraft version needs. */
 export function javaTagFor(version: string) {
+  // Since 2026 versions are numbered by year (26.1, 26.2, …) and need Java 25.
+  if (compareVersions(version, "26") >= 0) return "java25";
   if (compareVersions(version, "1.20.5") >= 0) return "java21";
   if (compareVersions(version, "1.17") >= 0) return "java17";
   return "java8";

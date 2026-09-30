@@ -157,7 +157,7 @@ export default function Settings({ server, reload }: ServerTabProps) {
             {t("settings.java")}
             <select id="set-java" value={javaTag} onChange={(e) => setJavaTag(e.target.value)}>
               <option value="">{t("settings.javaAuto")}</option>
-              {["java8", "java11", "java17", "java21", "java24"].map((j) => (
+              {["java8", "java11", "java17", "java21", "java25"].map((j) => (
                 <option key={j} value={j}>
                   {j}
                 </option>
