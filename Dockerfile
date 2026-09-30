@@ -1,12 +1,17 @@
 # ---- build ----
-FROM node:22-alpine AS build
+# Runs natively on the build machine for every target platform: the app and its
+# runtime dependencies are plain JavaScript, so only the final stage is per-arch.
+FROM --platform=$BUILDPLATFORM node:22-alpine AS build
 WORKDIR /app
 COPY package.json package-lock.json ./
 COPY backend/package.json backend/
 COPY frontend/package.json frontend/
 RUN npm ci
 COPY . .
-RUN npm run build && npm prune --omit=dev
+RUN npm run build && npm prune --omit=dev \
+ # Optional native add-ons (SSH for remote Docker hosts, unused) would be built
+ # for the wrong CPU; without them the libraries fall back to JavaScript.
+ && rm -rf node_modules/ssh2/lib/protocol/crypto/build node_modules/cpu-features/build
 
 # ---- run ----
 FROM node:22-alpine
