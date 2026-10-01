@@ -20,6 +20,21 @@ export interface InstalledProject {
   iconUrl?: string;
 }
 
+export interface CommandInfo {
+  name: string;
+  description?: string;
+  usage?: string;
+  aliases?: string[];
+  permission?: string;
+}
+
+export interface ContentInfo {
+  fileName: string;
+  name: string;
+  configPaths: string[];
+  commands: CommandInfo[];
+}
+
 export interface ExtraPort {
   containerPort: number;
   hostPort: number;

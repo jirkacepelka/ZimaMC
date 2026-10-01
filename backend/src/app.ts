@@ -11,6 +11,7 @@ import { Auth } from "./auth.js";
 import { Backups } from "./backups.js";
 import { VERSION } from "./config.js";
 import { DockerManager } from "./docker.js";
+import * as content from "./content.js";
 import * as files from "./files.js";
 import * as modrinth from "./modrinth.js";
 import { SERVER_TYPES, contentKind } from "./minecraft.js";
@@ -207,6 +208,23 @@ export async function buildApp(deps: AppDeps = {}) {
     if (!cmd) throw new HttpError(400, "empty_command");
     if (!(await docker.isRunning(req.params.id))) throw new HttpError(409, "server_offline");
     return { output: await docker.rcon(req.params.id, cmd) };
+  });
+
+  // Where each plugin or mod keeps its settings, and the commands plugins declare.
+  app.get<IdParams>("/api/servers/:id/content", async (req) => ({ items: await content.inspectAll(servers.get(req.params.id)) }));
+
+  app.get<IdParams>("/api/servers/:id/commands", async (req) => {
+    const s = servers.get(req.params.id);
+    const items = (await content.inspectAll(s)).filter((i) => i.commands.length > 0);
+    let live: content.LiveCommand[] | null = null;
+    if (await docker.isRunning(s.id)) {
+      try {
+        live = await content.liveCommands(s, (c) => docker.rcon(s.id, c));
+      } catch {
+        live = null;
+      }
+    }
+    return { plugins: items.map((i) => ({ name: i.name, commands: i.commands })), live };
   });
 
   app.get<IdParams>("/api/servers/:id/console", { websocket: true }, async (socket, req) => {

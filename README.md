@@ -17,7 +17,8 @@ ZimaMC is a web app for [ZimaOS](https://www.zimaspace.com/) (and CasaOS) that l
   1. Your public address, with automatic router port opening (UPnP / NAT-PMP) and a connection test.
   2. **Your own domain via Cloudflare**: a prefilled token link, then ZimaMC creates the A and SRV records and keeps them updated when your home IP changes (dynamic DNS).
   3. **A playit.gg tunnel** for connections behind CGNAT, where ports can't be opened. You approve the machine once and ZimaMC creates the tunnel.
-- **Console** with live log and commands.
+- **Console** with live log, commands and a cheat sheet of everyday commands, plus the ones your plugins and mods add.
+- **Plugin and mod settings**: one click opens their config files in the built-in editor.
 - **Players**: whitelist, operators, bans and kicks.
 - **Backups**: manual or scheduled, with retention, restore and download.
 - **File manager**: browse, edit, upload and download.

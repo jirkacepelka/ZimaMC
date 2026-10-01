@@ -1,9 +1,11 @@
 import fs from "node:fs";
+import path from "node:path";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { buildApp } from "../src/app.js";
 import { DATA_DIR } from "../src/config.js";
 import { DockerManager } from "../src/docker.js";
 import type { ServerConfig } from "../src/store.js";
+import { makeZip } from "./zip.js";
 
 /** Docker stand-in: tracks which servers "run" without touching a daemon. */
 class FakeDocker extends DockerManager {
@@ -127,6 +129,17 @@ describe("API", () => {
     expect((await req("GET", `/api/servers/${id}/files/content?path=../../zimamc.json`)).json().error).toBe("invalid_path");
     const names = (await req("GET", `/api/servers/${id}/files`)).json().entries.map((e: { name: string }) => e.name);
     expect(names).toContain("hello.txt");
+  });
+
+  it("finds a plugin's settings folder and its commands", async () => {
+    const id = (await req("GET", "/api/servers")).json().servers[0].id;
+    const dir = path.join(DATA_DIR, "servers", id, "plugins");
+    fs.mkdirSync(path.join(dir, "Essentials"), { recursive: true });
+    fs.writeFileSync(path.join(dir, "Essentials-2.20.jar"), makeZip({ "plugin.yml": "name: Essentials\ncommands:\n  home:\n    description: Go home\n" }));
+    const items = (await req("GET", `/api/servers/${id}/content`)).json().items;
+    expect(items).toEqual([expect.objectContaining({ fileName: "Essentials-2.20.jar", name: "Essentials", configPaths: ["plugins/Essentials"] })]);
+    const cmds = (await req("GET", `/api/servers/${id}/commands`)).json();
+    expect(cmds.plugins).toEqual([{ name: "Essentials", commands: [expect.objectContaining({ name: "home", description: "Go home" })] }]);
   });
 
   it("backs up and restores a stopped server", async () => {

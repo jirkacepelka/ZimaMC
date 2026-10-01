@@ -194,7 +194,36 @@
     "needsOnline": "Commands work when the server is online",
     "command": "Command",
     "send": "Send",
-    "hint": "No slash needed. Use ↑ and ↓ for earlier commands."
+    "hint": "No slash needed. Use ↑ and ↓ for earlier commands.",
+    "commands": "Commands",
+    "insert": "Click to put it in the command box",
+    "cheatTitle": "Command cheat sheet",
+    "cheatSearch": "Search commands…",
+    "cheatHint": "Click a command to put it in the command box. <player> and similar parts are for you to fill in.",
+    "cheatBasic": "Everyday commands",
+    "cheatLive": "All commands on this server",
+    "cheatLiveOffline": "Start the server to list every command it knows, including those from mods.",
+    "cheatLiveEmpty": "The server did not list any commands.",
+    "cheatLiveNote": "Asked the running server itself. Some mods and plugins add commands that are not listed here; check their page for those.",
+    "aliases": "Also: {{list}}",
+    "basic": {
+      "list": "Who is online",
+      "say": "Send a message to everyone",
+      "op": "Make someone an operator",
+      "whitelist": "Let someone join (when the whitelist is on)",
+      "gamemode": "Change someone's game mode",
+      "tp": "Teleport one player to another",
+      "give": "Give items to a player",
+      "time": "Set the time of day",
+      "weather": "Change the weather",
+      "difficulty": "Change the difficulty",
+      "gamerule": "Change a game rule",
+      "kick": "Kick a player",
+      "ban": "Ban a player",
+      "seed": "Show the world seed",
+      "save": "Save the world now",
+      "stop": "Stop the server"
+    }
   },
   "plugins": {
     "installedTitle": {
@@ -235,7 +264,9 @@
     "removeText": "Its settings folder stays, so reinstalling it later keeps your configuration.",
     "categories": "Categories",
     "allCategories": "All",
-    "clientToo": "Players need it too"
+    "clientToo": "Players need it too",
+    "settings": "Settings",
+    "settingsHint": "“Settings” opens the files of the plugin or mod so you can edit them. They create their settings the first time the server runs. Restart the server after changing them."
   },
   "players": {
     "onlineTitle": "Online now: {{online}} / {{max}}",

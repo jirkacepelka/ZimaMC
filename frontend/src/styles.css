@@ -246,3 +246,11 @@ button.tag.filter.on { background: var(--green); border-color: #000; color: #fff
 .ports-row { display: grid; grid-template-columns: 2fr 1fr 1fr auto auto; gap: 8px; align-items: center; }
 .ports-row input, .ports-row select { padding: 8px 10px; }
 @media (max-width: 760px) { .ports-row { grid-template-columns: 1fr 1fr; } }
+
+.cmd-list { display: grid; border: 2px solid var(--line); }
+.cmd-row { display: grid; grid-template-columns: minmax(120px, 40%) 1fr; gap: 4px 12px; text-align: left; padding: 8px 12px; background: var(--panel); border: 0; border-top: 2px solid var(--line); color: inherit; cursor: pointer; font: inherit; }
+.cmd-row:first-child { border-top: 0; }
+.cmd-row:hover, .cmd-row:focus-visible { background: var(--panel-2); }
+.cmd-row code { overflow-wrap: anywhere; }
+.cmd-row .hint:last-child:not(:nth-child(2)) { grid-column: 2; }
+@media (max-width: 600px) { .cmd-row { grid-template-columns: 1fr; } }

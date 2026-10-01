@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { del, get, post, type InstalledProject } from "../../api";
+import { useNavigate } from "react-router-dom";
+import { del, get, post, type ContentInfo, type InstalledProject } from "../../api";
 import { ProjectDetails, compact, useTagLabel } from "../../components/ProjectDetails";
 import { Confirm, useAction, useErrorText, useToast } from "../../ui";
 import type { ServerTabProps } from "../ServerPage";
@@ -40,11 +41,31 @@ export default function Plugins({ server, reload }: ServerTabProps) {
   const [categories, setCategories] = useState<string[]>([]);
   const [open, setOpen] = useState<string | null>(null);
   const tagLabel = useTagLabel();
+  const nav = useNavigate();
+  const [content, setContent] = useState<Record<string, ContentInfo>>({});
+
+  const loadContent = () =>
+    get<{ items: ContentInfo[] }>(`/api/servers/${server.id}/content`)
+      .then((r) => setContent(Object.fromEntries(r.items.map((i) => [i.fileName, i]))))
+      .catch(() => {});
+
+  /** Open the plugin's or mod's settings in the file editor. */
+  const openSettings = (fileName: string) => {
+    const paths = content[fileName]?.configPaths ?? [];
+    const base = `/servers/${server.id}/files`;
+    if (paths.length === 0) return nav(`${base}?path=${word === "plugins" ? "plugins" : "config"}`);
+    const first = paths[0];
+    // A single folder opens as is; a single file opens in the editor; several files show their folder.
+    if (paths.length === 1 && !/\.[A-Za-z0-9]+$/.test(first)) return nav(`${base}?path=${encodeURIComponent(first)}`);
+    const dir = first.slice(0, first.lastIndexOf("/"));
+    nav(paths.length === 1 ? `${base}?path=${encodeURIComponent(dir)}&open=${encodeURIComponent(first.slice(dir.length + 1))}` : `${base}?path=${encodeURIComponent(dir)}`);
+  };
 
   const loadInstalled = async () => {
     const r = await get<{ installed: InstalledProject[]; manual: string[] }>(`/api/servers/${server.id}/projects`);
     setInstalled(r.installed);
     setManual(r.manual);
+    void loadContent();
   };
 
   const search = async (query: string, offset = 0, cat = category) => {
@@ -132,6 +153,15 @@ export default function Plugins({ server, reload }: ServerTabProps) {
                     {up && <div className="hint" style={{ color: "var(--gold)" }}>{t("plugins.updateAvailable", { version: up.latestName })}</div>}
                   </div>
                   <button
+                    className="btn small stone"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      openSettings(p.fileName);
+                    }}
+                  >
+                    {t("plugins.settings")}
+                  </button>
+                  <button
                     className="btn small danger"
                     onClick={(e) => {
                       e.stopPropagation();
@@ -150,6 +180,9 @@ export default function Plugins({ server, reload }: ServerTabProps) {
                   <b className="mono">{f}</b>
                   <div className="hint">{t("plugins.manual")}</div>
                 </div>
+                <button className="btn small stone" onClick={() => openSettings(f)}>
+                  {t("plugins.settings")}
+                </button>
                 <button
                   className="btn small danger"
                   onClick={() => run(() => del(`/api/servers/${server.id}/projects-manual?file=${encodeURIComponent(f)}`)).then(() => afterChange(server.status === "online"))}
@@ -160,6 +193,7 @@ export default function Plugins({ server, reload }: ServerTabProps) {
             ))}
           </div>
         )}
+        {(installed.length > 0 || manual.length > 0) && <p className="hint">{t("plugins.settingsHint")}</p>}
       </div>
 
       <div className="panel stack">

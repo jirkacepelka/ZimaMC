@@ -198,7 +198,36 @@
     "needsOnline": "Příkazy fungují, když server běží",
     "command": "Příkaz",
     "send": "Odeslat",
-    "hint": "Lomítko není potřeba. Šipkami ↑ a ↓ se vrátíš k předchozím příkazům."
+    "hint": "Lomítko není potřeba. Šipkami ↑ a ↓ se vrátíš k předchozím příkazům.",
+    "commands": "Příkazy",
+    "insert": "Kliknutím vložíš příkaz do pole",
+    "cheatTitle": "Tahák s příkazy",
+    "cheatSearch": "Hledat příkazy…",
+    "cheatHint": "Kliknutím vložíš příkaz do pole. Části jako <player> si doplníš sám.",
+    "cheatBasic": "Běžné příkazy",
+    "cheatLive": "Všechny příkazy na tomto serveru",
+    "cheatLiveOffline": "Spusť server, aby se ukázaly všechny příkazy, které zná, včetně těch z módů.",
+    "cheatLiveEmpty": "Server žádné příkazy nevypsal.",
+    "cheatLiveNote": "Zeptali jsme se přímo běžícího serveru. Některé módy a pluginy přidávají příkazy, které tu nejsou; ty najdeš na jejich stránce.",
+    "aliases": "Také: {{list}}",
+    "basic": {
+      "list": "Kdo je online",
+      "say": "Poslat zprávu všem",
+      "op": "Udělat z někoho operátora",
+      "whitelist": "Pustit někoho na server (když je zapnutý whitelist)",
+      "gamemode": "Změnit herní režim hráče",
+      "tp": "Teleportovat hráče k jinému",
+      "give": "Dát hráči předměty",
+      "time": "Nastavit denní dobu",
+      "weather": "Změnit počasí",
+      "difficulty": "Změnit obtížnost",
+      "gamerule": "Změnit pravidlo hry",
+      "kick": "Vyhodit hráče",
+      "ban": "Zabanovat hráče",
+      "seed": "Ukázat seed světa",
+      "save": "Uložit svět hned",
+      "stop": "Vypnout server"
+    }
   },
   "plugins": {
     "installedTitle": {
@@ -245,7 +274,9 @@
     "removeText": "Složka s jeho nastavením zůstane, takže při pozdější instalaci o nastavení nepřijdeš.",
     "categories": "Kategorie",
     "allCategories": "Vše",
-    "clientToo": "Potřebují ho i hráči"
+    "clientToo": "Potřebují ho i hráči",
+    "settings": "Nastavení",
+    "settingsHint": "„Nastavení“ otevře soubory pluginu nebo módu, které můžeš upravit. Nastavení se vytvoří při prvním spuštění serveru. Po změně server restartuj."
   },
   "players": {
     "onlineTitle": "Právě online: {{online}} / {{max}}",

@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { useSearchParams } from "react-router-dom";
 import { ApiError, del, formatBytes, get, post, put } from "../../api";
 import { Confirm, Modal, useAction, useErrorText, useToast } from "../../ui";
 import type { ServerTabProps } from "../ServerPage";
@@ -18,7 +19,9 @@ export default function Files({ server }: ServerTabProps) {
   const toast = useToast();
   const errorText = useErrorText();
   const [run, busy] = useAction();
-  const [path, setPath] = useState("");
+  // Other pages link here with ?path=folder (and &open=file to start editing it).
+  const [params, setParams] = useSearchParams();
+  const [path, setPath] = useState(params.get("path") ?? "");
   const [entries, setEntries] = useState<Entry[] | null>(null);
   const [editing, setEditing] = useState<{ path: string; content: string } | null>(null);
   const [deleting, setDeleting] = useState<Entry | null>(null);
@@ -40,6 +43,14 @@ export default function Files({ server }: ServerTabProps) {
     void load(path);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [path, server.id]);
+
+  useEffect(() => {
+    const file = params.get("open");
+    if (!file) return;
+    setParams({}, { replace: true });
+    void open({ name: file, dir: false, size: 0, modified: "" });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const open = async (e: Entry) => {
     const p = join(path, e.name);

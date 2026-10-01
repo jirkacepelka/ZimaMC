@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { post } from "../../api";
+import CommandSheet from "../../components/CommandSheet";
 import { useAction } from "../../ui";
 import type { ServerTabProps } from "../ServerPage";
 
@@ -20,6 +21,7 @@ export default function Console({ server }: ServerTabProps) {
   const [history, setHistory] = useState<string[]>([]);
   const [hIdx, setHIdx] = useState(-1);
   const [run, busy] = useAction();
+  const [sheet, setSheet] = useState(false);
   const box = useRef<HTMLDivElement>(null);
   const stick = useRef(true);
 
@@ -124,8 +126,23 @@ export default function Console({ server }: ServerTabProps) {
         <button className="btn" disabled={!online || busy}>
           {t("console.send")}
         </button>
+        <button type="button" className="btn stone" onClick={() => setSheet(true)}>
+          {t("console.commands")}
+        </button>
       </form>
       <p className="hint">{t("console.hint")}</p>
+      {sheet && (
+        <CommandSheet
+          serverId={server.id}
+          online={online}
+          onClose={() => setSheet(false)}
+          onPick={(c) => {
+            setCmd(c);
+            setSheet(false);
+            setTimeout(() => document.getElementById("console-cmd")?.focus(), 0);
+          }}
+        />
+      )}
     </div>
   );
 }
