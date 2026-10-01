@@ -101,3 +101,15 @@ export function parsePlayerList(out: string) {
 export function isValidPlayerName(name: unknown): name is string {
   return typeof name === "string" && /^[A-Za-z0-9_]{3,16}$/.test(name);
 }
+
+/**
+ * Remove colours from server output: terminal (ANSI) escape codes and
+ * Minecraft formatting codes, including hex colours written as §x§r§r§g§g§b§b.
+ */
+export function plainText(s: string) {
+  return s
+    .replace(/\x1b\[[0-9;?]*[A-Za-z]/g, "")
+    .replace(/§x(§[0-9a-f]){6}/gi, "")
+    .replace(/§[0-9a-fk-orx]/gi, "")
+    .trim();
+}

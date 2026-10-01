@@ -1,7 +1,7 @@
 import Docker from "dockerode";
 import { PassThrough, type Readable } from "node:stream";
 import { CONTAINER_PREFIX, HOST_DATA_DIR, MC_IMAGE } from "./config.js";
-import { containerEnv, imageTag } from "./minecraft.js";
+import { containerEnv, imageTag, plainText } from "./minecraft.js";
 import { containerMemoryMB } from "./resources.js";
 import type { ServerConfig } from "./store.js";
 
@@ -205,8 +205,7 @@ export class DockerManager {
   /** Send a console command through RCON (the image ships a preconfigured rcon-cli). */
   async rcon(id: string, command: string) {
     const out = await this.exec(id, ["rcon-cli", command]);
-    // Strip Minecraft colour codes.
-    return out.replace(/§[0-9a-fk-or]/gi, "").trim();
+    return plainText(out);
   }
 
   /** Stream the container's log (stdout + stderr) as text. */

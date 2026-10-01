@@ -4,7 +4,7 @@ import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { includeInBackup } from "../src/backups.js";
 import { safeJoin } from "../src/files.js";
-import { compareVersions, containerEnv, defaultProperties, javaTagFor, parsePlayerList } from "../src/minecraft.js";
+import { compareVersions, containerEnv, defaultProperties, javaTagFor, parsePlayerList, plainText } from "../src/minecraft.js";
 import { loadersFor, pickVersion, searchUrl } from "../src/modrinth.js";
 import { buildRecords, fqdn, isValidSubdomain, tokenTemplateUrl } from "../src/network/cloudflare.js";
 import { isCgnat } from "../src/network/ip.js";
@@ -147,6 +147,12 @@ describe("minecraft", () => {
       SPAWN_PROTECTION: "0",
     });
     expect(env["bad key"]).toBeUndefined();
+  });
+
+  it("removes colours from command output", () => {
+    const hex = "§x§6§7§c§f§f§fs§x§6§9§c§d§f§eq";
+    expect(plainText(`\x1b[37m[${hex}uaremap\x1b[37m] \x1b[31mNo such world\x1b[0m\n`)).toBe("[squaremap] No such world");
+    expect(plainText("§aDone §lbold§r")).toBe("Done bold");
   });
 
   it("parses the player list", () => {
