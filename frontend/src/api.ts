@@ -20,6 +20,14 @@ export interface InstalledProject {
   iconUrl?: string;
 }
 
+export interface ExtraPort {
+  containerPort: number;
+  hostPort: number;
+  protocol: "tcp" | "udp";
+  label: string;
+  service?: string;
+}
+
 export interface Server {
   id: string;
   name: string;
@@ -41,6 +49,8 @@ export interface Server {
   players: { online: number; max: number; names: string[] };
   containerMemoryMB: number;
   address: { lan?: string; public?: string; domain?: string; tunnel?: string };
+  extraPorts?: ExtraPort[];
+  services: (ExtraPort & { kind: "web" | "game" | "other"; url?: string; address: string })[];
 }
 
 export interface SystemInfo {

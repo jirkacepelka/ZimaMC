@@ -9,6 +9,7 @@ import { loadersFor, pickVersion, searchUrl } from "../src/modrinth.js";
 import { buildRecords, fqdn, isValidSubdomain, tokenTemplateUrl } from "../src/network/cloudflare.js";
 import { isCgnat } from "../src/network/ip.js";
 import { parsePaperVersions } from "../src/versions.js";
+import { detectServices } from "../src/services.js";
 import { dashUuid, offlineUuid } from "../src/players.js";
 import { assertFitsGlobalLimit, assertServerLimits, containerMemoryMB, defaultLimits, effectiveCpus } from "../src/resources.js";
 import { HttpError, type ServerConfig, type Settings } from "../src/store.js";
@@ -206,6 +207,17 @@ describe("cloudflare", () => {
       { key: "zone", type: "read" },
       { key: "dns", type: "edit" },
     ]);
+  });
+});
+
+describe("services", () => {
+  it("detects web maps and voice chat from jar names", () => {
+    const ids = (names: string[]) => detectServices(names).map((s) => s.id);
+    expect(ids(["squaremap-paper-mc1.21.8-1.3.4.jar", "EssentialsX.jar"])).toEqual(["squaremap"]);
+    expect(ids(["BlueMap-5.4-paper.jar", "voicechat-bukkit-2.5.30.jar", "Geyser-Spigot.jar"])).toEqual(["bluemap", "voicechat", "geyser"]);
+    // squaremap and Pl3xMap both use 8080 inside the server; only the first is published.
+    expect(ids(["squaremap.jar", "Pl3xMap.jar"])).toEqual(["squaremap"]);
+    expect(ids(["LuckPerms.jar"])).toEqual([]);
   });
 });
 

@@ -42,6 +42,23 @@ export default function Overview({ server: s }: ServerTabProps) {
         )}
       </div>
 
+      {s.services.length > 0 && (
+        <div className="panel stack">
+          <h2>{t("services.title")}</h2>
+          {s.services.map((svc) => (
+            <div key={`${svc.protocol}:${svc.hostPort}`} className="stack-sm">
+              <span className="muted">
+                {svc.label || t("services.unnamed")}
+                {svc.kind === "game" && ` · ${t("services.gameHint", { port: svc.hostPort, protocol: svc.protocol.toUpperCase() })}`}
+              </span>
+              <CopyAddress value={svc.url ?? svc.address} open={svc.url} />
+              {svc.service === "bluemap" && <p className="hint">{t("services.bluemap")}</p>}
+            </div>
+          ))}
+          <p className="hint">{t("services.hint")}</p>
+        </div>
+      )}
+
       <div className="grid2">
         <div className="panel stack-sm">
           <div className="row">

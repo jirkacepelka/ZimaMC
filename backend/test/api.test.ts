@@ -154,6 +154,34 @@ describe("API", () => {
     );
   });
 
+  it("publishes the port of a web map plugin and lets users add their own ports", async () => {
+    const id = (await req("GET", "/api/servers")).json().servers[0].id;
+    await req("POST", `/api/servers/${id}/files/mkdir`, { path: "plugins" });
+    await req("PUT", `/api/servers/${id}/files/content`, { path: "plugins/squaremap-paper-1.3.jar", content: "jar" });
+    await req("POST", `/api/servers/${id}/stop`);
+    await new Promise((r) => setTimeout(r, 20));
+    await req("POST", `/api/servers/${id}/start`);
+    await new Promise((r) => setTimeout(r, 50));
+    const s = (await req("GET", `/api/servers/${id}`)).json().server;
+    expect(s.services).toEqual([expect.objectContaining({ containerPort: 8080, protocol: "tcp", service: "squaremap", kind: "web", url: expect.stringMatching(/^http:\/\/.+:\d+$/) })]);
+
+    // A hand-added port can't reuse a port another server or service has.
+    const mapPort = s.services[0].hostPort;
+    expect((await req("PUT", `/api/servers/${id}/ports`, { ports: [{ containerPort: 9000, hostPort: mapPort, protocol: "tcp" }] })).json().error).toBe("port_in_use");
+    expect((await req("PUT", `/api/servers/${id}/ports`, { ports: [{ containerPort: 9000, hostPort: 80 }] })).json().error).toBe("invalid_port");
+    expect((await req("PUT", `/api/servers/${id}/ports`, { ports: [{ containerPort: 9000, hostPort: 9000, protocol: "udp", label: "Test" }] })).statusCode).toBe(200);
+    const after = (await req("GET", `/api/servers/${id}`)).json().server.extraPorts;
+    expect(after.map((p: { service?: string; hostPort: number }) => p.service ?? p.hostPort)).toEqual(["squaremap", 9000]);
+
+    // Removing the plugin removes its port on the next start; hand-added ports stay.
+    await req("DELETE", `/api/servers/${id}/files?path=plugins/squaremap-paper-1.3.jar`);
+    await req("POST", `/api/servers/${id}/stop`);
+    await new Promise((r) => setTimeout(r, 20));
+    await req("POST", `/api/servers/${id}/start`);
+    await new Promise((r) => setTimeout(r, 50));
+    expect((await req("GET", `/api/servers/${id}`)).json().server.extraPorts).toEqual([expect.objectContaining({ hostPort: 9000, protocol: "udp" })]);
+  });
+
   it("deletes a server and its files", async () => {
     const id = (await req("GET", "/api/servers")).json().servers[0].id;
     expect((await req("DELETE", `/api/servers/${id}`)).statusCode).toBe(200);

@@ -18,7 +18,9 @@
     "delete": "Delete",
     "download": "Download",
     "create": "Create",
-    "close": "Close"
+    "close": "Close",
+    "open": "Open",
+    "pressCtrlC": "Press Ctrl+C"
   },
   "app": {
     "unreachableTitle": "Can't reach ZimaMC",
@@ -494,5 +496,23 @@
     "wiki": "Wiki",
     "issues": "Report a problem",
     "license": "License: {{name}}"
+  },
+  "services": {
+    "title": "Maps and add-ons",
+    "unnamed": "Extra port",
+    "gameHint": "players connect on {{protocol}} port {{port}}",
+    "hint": "Found automatically from your plugins and mods. If a link doesn't work yet, restart the server. Web maps are only reachable from your home network.",
+    "bluemap": "BlueMap only starts rendering after you accept its download: in Files, open plugins/BlueMap/core.conf, set accept-download: true and restart."
+  },
+  "ports": {
+    "title": "Extra ports",
+    "hint": "For plugins or mods that need their own port. Known ones (web maps, voice chat, Geyser) are added automatically.",
+    "auto": "{{label}}: port {{host}} → {{container}} ({{protocol}}), added automatically",
+    "label": "Name",
+    "container": "Port in server",
+    "host": "Port on ZimaOS",
+    "protocol": "Protocol",
+    "add": "Add port",
+    "save": "Save ports"
   }
 }

@@ -12,6 +12,15 @@ export interface InstalledProject {
   iconUrl?: string;
 }
 
+export interface ExtraPort {
+  containerPort: number;
+  hostPort: number;
+  protocol: "tcp" | "udp";
+  label: string;
+  /** Set when ZimaMC added the port for a detected plugin or mod. */
+  service?: string;
+}
+
 export interface ServerConfig {
   id: string;
   name: string;
@@ -44,6 +53,8 @@ export interface ServerConfig {
   backup: { everyHours: number; keep: number; lastAt?: string };
   domain?: { zoneId: string; zoneName: string; name: string; aRecordId?: string; srvRecordId?: string };
   tunnel?: { tunnelId: string; address?: string };
+  /** Ports besides the game port: web maps, voice chat, … */
+  extraPorts?: ExtraPort[];
   createdAt: string;
 }
 

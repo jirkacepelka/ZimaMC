@@ -184,26 +184,75 @@ export function Meter({ value, max, reserve }: { value: number; max: number; res
   );
 }
 
-export function CopyAddress({ value }: { value: string }) {
+/**
+ * Copy text to the clipboard. The modern API only works on https or localhost,
+ * and ZimaOS is usually opened over plain http, so fall back to the classic
+ * select-and-copy way.
+ */
+export async function copyText(text: string) {
+  try {
+    if (window.isSecureContext && navigator.clipboard) {
+      await navigator.clipboard.writeText(text);
+      return true;
+    }
+  } catch {
+    /* fall through */
+  }
+  const ta = document.createElement("textarea");
+  ta.value = text;
+  ta.setAttribute("readonly", "");
+  ta.style.position = "fixed";
+  ta.style.top = "-1000px";
+  ta.style.opacity = "0";
+  document.body.appendChild(ta);
+  ta.select();
+  ta.setSelectionRange(0, text.length);
+  let ok = false;
+  try {
+    ok = document.execCommand("copy");
+  } catch {
+    ok = false;
+  }
+  document.body.removeChild(ta);
+  return ok;
+}
+
+export function CopyAddress({ value, open }: { value: string; open?: string }) {
   const { t } = useTranslation();
-  const [copied, setCopied] = useState(false);
+  const [state, setState] = useState<"idle" | "copied" | "failed">("idle");
+  const text = useRef<HTMLSpanElement>(null);
+  const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
+  useEffect(() => () => clearTimeout(timer.current), []);
   return (
-    <div className="addr">
-      <span>{value}</span>
-      <button
-        type="button"
-        onClick={async () => {
-          try {
-            await navigator.clipboard.writeText(value);
-            setCopied(true);
-            setTimeout(() => setCopied(false), 1500);
-          } catch {
-            /* clipboard blocked (plain http): the address stays selectable */
-          }
-        }}
-      >
-        {copied ? t("common.copied") : t("common.copy")}
-      </button>
+    <div className={`addr${state === "copied" ? " flash" : ""}`}>
+      <span ref={text}>{value}</span>
+      <span className="addr-actions">
+        {open && (
+          <a href={open} target="_blank" rel="noreferrer">
+            {t("common.open")}
+          </a>
+        )}
+        <button
+          type="button"
+          className={state === "copied" ? "copied" : ""}
+          onClick={async () => {
+            const ok = await copyText(value);
+            if (!ok && text.current) {
+              // Copying is blocked: select the text so Ctrl+C works.
+              const range = document.createRange();
+              range.selectNodeContents(text.current);
+              const sel = window.getSelection();
+              sel?.removeAllRanges();
+              sel?.addRange(range);
+            }
+            setState(ok ? "copied" : "failed");
+            clearTimeout(timer.current);
+            timer.current = setTimeout(() => setState("idle"), ok ? 1600 : 4000);
+          }}
+        >
+          {state === "copied" ? `✓ ${t("common.copied")}` : state === "failed" ? t("common.pressCtrlC") : t("common.copy")}
+        </button>
+      </span>
     </div>
   );
 }

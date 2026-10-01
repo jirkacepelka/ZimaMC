@@ -18,7 +18,9 @@
     "delete": "Smazat",
     "download": "Stáhnout",
     "create": "Vytvořit",
-    "close": "Zavřít"
+    "close": "Zavřít",
+    "open": "Otevřít",
+    "pressCtrlC": "Stiskni Ctrl+C"
   },
   "app": {
     "unreachableTitle": "ZimaMC neodpovídá",
@@ -531,5 +533,23 @@
     "transportation": "Doprava",
     "utility": "Nástroje",
     "worldgen": "Generování světa"
+  },
+  "services": {
+    "title": "Mapy a doplňky",
+    "unnamed": "Další port",
+    "gameHint": "hráči se připojují přes {{protocol}} port {{port}}",
+    "hint": "Nalezeno automaticky podle tvých pluginů a modů. Pokud odkaz ještě nefunguje, restartuj server. Webové mapy jsou dostupné jen z domácí sítě.",
+    "bluemap": "BlueMap začne mapu vykreslovat až po potvrzení stahování: v Souborech otevři plugins/BlueMap/core.conf, nastav accept-download: true a restartuj server."
+  },
+  "ports": {
+    "title": "Další porty",
+    "hint": "Pro pluginy nebo mody, které potřebují vlastní port. Známé (webové mapy, hlasový chat, Geyser) se přidají automaticky.",
+    "auto": "{{label}}: port {{host}} → {{container}} ({{protocol}}), přidáno automaticky",
+    "label": "Název",
+    "container": "Port v serveru",
+    "host": "Port na ZimaOS",
+    "protocol": "Protokol",
+    "add": "Přidat port",
+    "save": "Uložit porty"
   }
 }

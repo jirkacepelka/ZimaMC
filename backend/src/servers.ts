@@ -1,18 +1,20 @@
 import crypto from "node:crypto";
 import fsp from "node:fs/promises";
+import dgram from "node:dgram";
 import net from "node:net";
 import path from "node:path";
 import { BACKUPS_DIR, DATA_DIR } from "./config.js";
 import type { DockerManager, ServerStats, ServerStatus } from "./docker.js";
 import { dirSize, ensureDir, serverDir } from "./files.js";
-import { SERVER_TYPES, defaultProperties } from "./minecraft.js";
+import { SERVER_TYPES, contentKind, defaultProperties } from "./minecraft.js";
 import { applyDomain, deleteRecord, fqdn } from "./network/cloudflare.js";
 import { lanIp, publicIp } from "./network/ip.js";
 import type { Playit } from "./network/playit.js";
 import { closePort, openPort } from "./network/upnp.js";
 import type { Players } from "./players.js";
 import { assertFitsGlobalLimit, assertServerLimits, containerMemoryMB, effectiveCpus, reserved } from "./resources.js";
-import { HttpError, type ServerConfig, type ServerType, type Store } from "./store.js";
+import { detectServices, serviceById } from "./services.js";
+import { HttpError, type ExtraPort, type ServerConfig, type ServerType, type Store } from "./store.js";
 import { listVersions } from "./versions.js";
 
 export const SIZE_PRESETS = {
@@ -32,12 +34,29 @@ export interface CreateServerInput {
   start?: boolean;
 }
 
-function portFree(port: number) {
+function portFree(port: number, protocol: "tcp" | "udp" = "tcp") {
   return new Promise<boolean>((resolve) => {
+    if (protocol === "udp") {
+      const sock = dgram.createSocket("udp4");
+      sock.once("error", () => resolve(false));
+      sock.bind(port, "0.0.0.0", () => sock.close(() => resolve(true)));
+      return;
+    }
     const srv = net.createServer();
     srv.once("error", () => resolve(false));
     srv.listen(port, "0.0.0.0", () => srv.close(() => resolve(true)));
   });
+}
+
+/** Ports and protocols already given out to servers, as "tcp:25565". */
+function takenPorts(servers: ServerConfig[], except?: { id: string; keep: ExtraPort[] }) {
+  const taken = new Set<string>();
+  for (const s of servers) {
+    taken.add(`tcp:${s.port}`);
+    const extras = except && s.id === except.id ? except.keep : (s.extraPorts ?? []);
+    for (const p of extras) taken.add(`${p.protocol}:${p.hostPort}`);
+  }
+  return taken;
 }
 
 interface Live {
@@ -71,8 +90,8 @@ export class Servers {
   }
 
   async nextPort(exclude?: string) {
-    const used = new Set(this.store.servers.filter((s) => s.id !== exclude).map((s) => s.port));
-    for (let p = 25565; p < 25665; p++) if (!used.has(p) && (await portFree(p))) return p;
+    const used = takenPorts(this.store.servers.filter((s) => s.id !== exclude));
+    for (let p = 25565; p < 25665; p++) if (!used.has(`tcp:${p}`) && (await portFree(p))) return p;
     throw new HttpError(409, "no_free_port");
   }
 
@@ -173,6 +192,7 @@ export class Servers {
     await this.removeDomain(s).catch(() => {});
     if (s.tunnel) await this.playit.deleteTunnel(s.tunnel.tunnelId).catch(() => {});
     await closePort(s.port);
+    for (const p of s.extraPorts ?? []) await closePort(p.hostPort, p.protocol === "udp" ? "UDP" : "TCP");
     this.store.data.servers = this.store.servers.filter((x) => x.id !== id);
     this.store.save();
     this.live.delete(id);
@@ -210,6 +230,7 @@ export class Servers {
     await this.exclusive(id, async () => {
       assertFitsGlobalLimit(this.store.settings, await this.runningServers(), s);
       await ensureDir(serverDir(id));
+      await this.syncServicePorts(id);
       this.setLive(id, { status: "starting" });
       try {
         await this.docker.start(s);
@@ -220,9 +241,79 @@ export class Servers {
         }
         throw e;
       }
-      if (this.store.settings.network.upnp) openPort(s.port).catch(() => {});
+      if (this.store.settings.network.upnp) this.openRouterPorts(s);
     });
     await this.balanceCpu();
+  }
+
+  /** Game port plus ports players' clients use (voice chat, Bedrock). Web maps stay in the home network. */
+  private openRouterPorts(s: ServerConfig) {
+    openPort(s.port).catch(() => {});
+    for (const p of s.extraPorts ?? []) {
+      if (serviceById(p.service)?.kind === "game") openPort(p.hostPort, p.protocol === "udp" ? "UDP" : "TCP").catch(() => {});
+    }
+  }
+
+  private async freeHostPort(preferred: number, protocol: "tcp" | "udp", taken: Set<string>) {
+    for (let port = preferred; port < preferred + 200 && port <= 65535; port++) {
+      if (!taken.has(`${protocol}:${port}`) && (await portFree(port, protocol))) return port;
+    }
+    throw new HttpError(409, "no_free_port");
+  }
+
+  /**
+   * Publish the ports of plugins and mods that run their own service (web maps,
+   * voice chat, Geyser). Detected from the jar files, so hand-added ones count too.
+   * Returns true when the ports changed (the server needs a restart).
+   */
+  async syncServicePorts(id: string) {
+    const s = this.get(id);
+    const kind = contentKind(s.type);
+    let files: string[] = [];
+    if (kind) files = await fsp.readdir(path.join(serverDir(id), kind.dir)).catch(() => []);
+    const found = detectServices([...files.filter((f) => f.endsWith(".jar")), ...s.projects.map((p) => p.title)]);
+    const current = s.extraPorts ?? [];
+    const keep = current.filter((p) => !p.service || found.some((f) => f.id === p.service));
+    const taken = takenPorts(this.store.servers, { id, keep });
+    const added: ExtraPort[] = [];
+    for (const svc of found) {
+      if (keep.some((p) => p.service === svc.id)) continue;
+      // Skip if the user already maps this internal port by hand.
+      if (keep.some((p) => p.containerPort === svc.containerPort && p.protocol === svc.protocol)) continue;
+      const hostPort = await this.freeHostPort(svc.containerPort, svc.protocol, taken);
+      taken.add(`${svc.protocol}:${hostPort}`);
+      added.push({ containerPort: svc.containerPort, hostPort, protocol: svc.protocol, label: svc.label, service: svc.id });
+    }
+    const next = [...keep, ...added];
+    const changed = next.length !== current.length || added.length > 0;
+    if (changed) this.store.updateServer(id, (x) => (x.extraPorts = next));
+    return changed;
+  }
+
+  /** Replace the ports the user added by hand (Expert settings). Detected ones are kept. */
+  async setManualPorts(id: string, ports: Partial<ExtraPort>[]) {
+    const s = this.get(id);
+    if (!Array.isArray(ports) || ports.length > 20) throw new HttpError(400, "bad_request");
+    const auto = (s.extraPorts ?? []).filter((p) => p.service);
+    const manual: ExtraPort[] = ports.map((p) => ({
+      containerPort: Number(p.containerPort),
+      hostPort: Number(p.hostPort ?? p.containerPort),
+      protocol: p.protocol === "udp" ? "udp" : "tcp",
+      label: String(p.label ?? "").trim().slice(0, 40),
+    }));
+    const taken = takenPorts(this.store.servers.filter((x) => x.id !== id));
+    taken.add(`tcp:${s.port}`);
+    for (const p of auto) taken.add(`${p.protocol}:${p.hostPort}`);
+    for (const p of manual) {
+      const valid = (n: number) => Number.isInteger(n) && n >= 1 && n <= 65535;
+      if (!valid(p.containerPort) || !valid(p.hostPort) || p.hostPort < 1024) throw new HttpError(400, "invalid_port");
+      if (p.containerPort === 25565 && p.protocol === "tcp") throw new HttpError(400, "invalid_port");
+      const key = `${p.protocol}:${p.hostPort}`;
+      if (taken.has(key)) throw new HttpError(409, "port_in_use", { port: p.hostPort });
+      taken.add(key);
+    }
+    this.store.updateServer(id, (x) => (x.extraPorts = [...auto, ...manual]));
+    return { restartNeeded: await this.docker.isRunning(id) };
   }
 
   /** Keep all running servers together within the global CPU limit. */
@@ -276,7 +367,22 @@ export class Servers {
       players: live?.players ?? { online: 0, max: s.properties.maxPlayers, names: [] },
       containerMemoryMB: containerMemoryMB(s.memoryMB),
       address: this.address(s),
+      services: this.services(s),
     };
+  }
+
+  /** Extra ports as the UI shows them: web maps get a link, game services an address. */
+  services(s: ServerConfig) {
+    const lan = this.store.settings.network.lanIp || lanIp() || "localhost";
+    return (s.extraPorts ?? []).map((p) => {
+      const svc = serviceById(p.service);
+      return {
+        ...p,
+        kind: svc?.kind ?? "other",
+        url: svc?.kind === "web" ? `http://${lan}:${p.hostPort}` : undefined,
+        address: `${lan}:${p.hostPort}`,
+      };
+    });
   }
 
   address(s: ServerConfig) {
@@ -392,11 +498,13 @@ export class Servers {
 
   /** On boot: start servers marked auto-start that Docker did not already bring back. */
   async autoStart() {
+    // Pick up web maps and other add-ons installed before this version or by hand.
+    for (const s of this.store.servers) await this.syncServicePorts(s.id).catch(() => false);
     for (const s of this.store.servers) {
       if (s.autoStart && !(await this.docker.isRunning(s.id))) {
         await this.start(s.id).catch((e) => console.error(`[autostart] ${s.name}:`, e));
       }
-      if (s.autoStart && this.store.settings.network.upnp) openPort(s.port).catch(() => {});
+      if (s.autoStart && this.store.settings.network.upnp) this.openRouterPorts(s);
     }
   }
 }

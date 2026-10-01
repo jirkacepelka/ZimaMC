@@ -106,12 +106,15 @@ export class DockerManager {
       Image: image,
       Env: Object.entries(containerEnv(s)).map(([k, v]) => `${k}=${v}`),
       Labels: { "zimamc.server": s.id, "zimamc.name": s.name },
-      ExposedPorts: { "25565/tcp": {} },
+      ExposedPorts: Object.fromEntries([["25565/tcp", {}], ...(s.extraPorts ?? []).map((p) => [`${p.containerPort}/${p.protocol}`, {}])]),
       Tty: false,
       OpenStdin: true,
       HostConfig: {
         Binds: [`${HOST_DATA_DIR}/servers/${s.id}:/data`],
-        PortBindings: { "25565/tcp": [{ HostPort: String(s.port) }] },
+        PortBindings: Object.fromEntries([
+          ["25565/tcp", [{ HostPort: String(s.port) }]],
+          ...(s.extraPorts ?? []).map((p) => [`${p.containerPort}/${p.protocol}`, [{ HostPort: String(p.hostPort) }]]),
+        ]),
         Memory: memBytes,
         MemorySwap: memBytes,
         NanoCpus: Math.round(s.cpus * 1e9),

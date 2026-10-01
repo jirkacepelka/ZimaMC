@@ -21,7 +21,7 @@ import { isMapped, openPort } from "./network/upnp.js";
 import { Players, type PlayerList } from "./players.js";
 import { defaultLimits, hostInfo } from "./resources.js";
 import { Servers } from "./servers.js";
-import { HttpError, Store, type ServerType } from "./store.js";
+import { HttpError, Store, type ExtraPort, type ServerType } from "./store.js";
 import { listVersions } from "./versions.js";
 
 type IdParams = { Params: { id: string } };
@@ -259,6 +259,7 @@ export async function buildApp(deps: AppDeps = {}) {
     const s = servers.get(req.params.id);
     const installed = await modrinth.install(s, String(req.body?.projectId ?? ""));
     saveInstalled(s.id, installed);
+    await servers.syncServicePorts(s.id).catch(() => false);
     return { installed, restartNeeded: await docker.isRunning(s.id) };
   });
 
@@ -266,8 +267,13 @@ export async function buildApp(deps: AppDeps = {}) {
     const s = servers.get(req.params.id);
     await modrinth.uninstall(s, req.params.pid);
     store.updateServer(s.id, (x) => (x.projects = x.projects.filter((p) => p.projectId !== req.params.pid)));
+    await servers.syncServicePorts(s.id).catch(() => false);
     return { ok: true, restartNeeded: await docker.isRunning(s.id) };
   });
+
+  app.put<IdParams & { Body: { ports: Partial<ExtraPort>[] } }>("/api/servers/:id/ports", async (req) =>
+    servers.setManualPorts(req.params.id, req.body?.ports ?? []),
+  );
 
   app.delete<IdParams & { Querystring: { file: string } }>("/api/servers/:id/projects-manual", async (req) => {
     const s = servers.get(req.params.id);

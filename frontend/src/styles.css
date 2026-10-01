@@ -231,3 +231,18 @@ button.tag.filter.on { background: var(--green); border-color: #000; color: #fff
 .markdown blockquote { border-left: 4px solid var(--line); margin: 0 0 0.8em; padding-left: 12px; color: var(--muted); }
 .markdown hr { border: 0; border-top: 2px solid var(--line); }
 .modal .tabs .tab { padding-left: 0; margin-right: 14px; }
+
+/* ---------- copy feedback ---------- */
+.addr { transition: border-color 0.2s, box-shadow 0.2s; }
+.addr.flash { border-color: var(--green-hi); animation: addr-flash 0.6s ease-out; }
+@keyframes addr-flash { 0% { box-shadow: 0 0 0 0 rgba(82, 165, 53, 0.7); } 100% { box-shadow: 0 0 0 10px rgba(82, 165, 53, 0); } }
+.addr-actions { display: flex; gap: 12px; align-items: center; flex: none; }
+.addr-actions a { color: var(--green-hi); font: 600 13px var(--f-body); text-decoration: none; }
+.addr-actions a:hover, .addr button:hover { text-decoration: underline; }
+.addr button.copied { color: #7be055; animation: copy-pop 0.35s ease-out; }
+@keyframes copy-pop { 0% { transform: scale(0.8); } 60% { transform: scale(1.15); } 100% { transform: scale(1); } }
+@media (prefers-reduced-motion: reduce) { .addr.flash, .addr button.copied { animation: none; } }
+
+.ports-row { display: grid; grid-template-columns: 2fr 1fr 1fr auto auto; gap: 8px; align-items: center; }
+.ports-row input, .ports-row select { padding: 8px 10px; }
+@media (max-width: 760px) { .ports-row { grid-template-columns: 1fr 1fr; } }

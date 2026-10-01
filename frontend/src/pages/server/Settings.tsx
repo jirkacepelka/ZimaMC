@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
 import { del, formatMB, get, patch, type Properties, type Server } from "../../api";
+import { PortsEditor } from "../../components/PortsEditor";
 import { Confirm, Expert, useAction, useApp, useToast } from "../../ui";
 import type { ServerTabProps } from "../ServerPage";
 
@@ -185,6 +186,7 @@ export default function Settings({ server, reload }: ServerTabProps) {
             {t("settings.docs")}
           </a>
         </p>
+        <PortsEditor server={server} onSaved={reload} />
       </Expert>
 
       <div className="row">
