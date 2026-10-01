@@ -11,7 +11,7 @@ import { isCgnat } from "../src/network/ip.js";
 import { parsePaperVersions } from "../src/versions.js";
 import { detectServices } from "../src/services.js";
 import { dashUuid, offlineUuid } from "../src/players.js";
-import { assertFitsGlobalLimit, assertServerLimits, containerMemoryMB, defaultLimits, effectiveCpus } from "../src/resources.js";
+import { assertServerLimits, containerMemoryMB, defaultLimits, effectiveCpus } from "../src/resources.js";
 import { HttpError, type ServerConfig, type Settings } from "../src/store.js";
 
 function server(over: Partial<ServerConfig> = {}): ServerConfig {
@@ -60,31 +60,20 @@ describe("resources", () => {
     expect(defaultLimits({ memoryMB: 1000, cpus: 1 })).toEqual({ memoryMB: 1024, cpus: 1 });
   });
 
-  it("refuses to start a server that would exceed the global limit", () => {
-    const running = [server({ id: "a", memoryMB: 4096, cpus: 2 })];
-    // 5120 already reserved; another 2560 fits in 8192, a 4096 heap (5120) doesn't.
-    expect(code(() => assertFitsGlobalLimit(settings(8192, 4), running, server({ id: "b" })))).toBeNull();
-    expect(code(() => assertFitsGlobalLimit(settings(8192, 4), running, server({ id: "b", memoryMB: 4096 })))).toBe("limit_memory");
-    // CPU is shared, not reserved: only a single server above the global cap is refused.
-    expect(code(() => assertFitsGlobalLimit(settings(0, 2.5), running, server({ id: "b", cpus: 2 })))).toBeNull();
-    expect(code(() => assertFitsGlobalLimit(settings(0, 2.5), running, server({ id: "b", cpus: 3 })))).toBe("limit_cpu");
+  it("lets the servers add up to more than the global limit", () => {
+    // The limit is a budget: servers rarely all use their full share at once.
+    const limits = settings(8192, 2);
+    expect(code(() => assertServerLimits(limits, 4096, 2))).toBeNull();
+    expect(code(() => assertServerLimits(limits, 4096, 2))).toBeNull();
+    expect(code(() => assertServerLimits(limits, 7000, 1))).toBe("limit_memory");
   });
 
-  it("scales CPU caps so running servers share the global limit", () => {
+  it("keeps each server's own CPU limit, capped at the global limit", () => {
     const caps = effectiveCpus([server({ id: "a", cpus: 2 }), server({ id: "b", cpus: 2 })], 3);
-    expect(caps.get("a")).toBe(1.5);
-    expect(caps.get("b")).toBe(1.5);
-    expect(effectiveCpus([server({ id: "a", cpus: 2 })], 3).get("a")).toBe(2);
+    expect(caps.get("a")).toBe(2);
+    expect(caps.get("b")).toBe(2);
+    expect(effectiveCpus([server({ id: "a", cpus: 4 })], 3).get("a")).toBe(3);
     expect(effectiveCpus([server({ id: "a", cpus: 2 }), server({ id: "b", cpus: 4 })], 0).get("b")).toBe(4);
-  });
-
-  it("does not count the server being restarted twice", () => {
-    const s = server({ memoryMB: 4096 });
-    expect(code(() => assertFitsGlobalLimit(settings(5120, 1), [s], s))).toBeNull();
-  });
-
-  it("zero means no global limit", () => {
-    expect(code(() => assertFitsGlobalLimit(settings(0, 0), [server({ id: "a", memoryMB: 99999 })], server({ id: "b" })))).toBeNull();
   });
 
   it("validates a single server", () => {

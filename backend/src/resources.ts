@@ -50,33 +50,18 @@ export function reserved(servers: ServerConfig[]) {
 }
 
 /**
- * Before starting a server, make sure all running servers together stay under
- * the global limit set by the user. Throws a translatable error otherwise.
+ * The global limit is a budget, not a reservation: servers rarely all use their
+ * full share at the same time, so the limits of the running servers may add up to
+ * more than the budget. Only a single server may not ask for more than the whole
+ * budget, which is checked when it is created or edited (see assertServerLimits).
  */
-export function assertFitsGlobalLimit(settings: Settings, running: ServerConfig[], starting: ServerConfig) {
-  const others = running.filter((s) => s.id !== starting.id);
-  const used = reserved(others);
-  const needMem = containerMemoryMB(starting.memoryMB);
-  const { memoryMB, cpus } = settings.limits;
-  if (memoryMB > 0 && used.memoryMB + needMem > memoryMB) {
-    throw new HttpError(409, "limit_memory", {
-      need: needMem,
-      free: Math.max(0, memoryMB - used.memoryMB),
-    });
-  }
-  // CPU is not reserved: running servers share the global CPU limit (see effectiveCpus).
-  if (cpus > 0 && starting.cpus > cpus + 1e-9) throw new HttpError(409, "limit_cpu", { need: starting.cpus, free: cpus });
-}
 
 /**
- * CPU caps to apply to running servers so that together they never use more
- * than the global CPU limit. When the sum of their own limits is too high,
- * every server is scaled down by the same factor. Docker applies this live.
+ * CPU caps for running servers. Each keeps its own limit, but never more than
+ * the global CPU limit. Docker applies this live.
  */
 export function effectiveCpus(running: Pick<ServerConfig, "id" | "cpus">[], globalCpus: number) {
-  const sum = running.reduce((a, s) => a + s.cpus, 0);
-  const factor = globalCpus > 0 && sum > globalCpus ? globalCpus / sum : 1;
-  return new Map(running.map((s) => [s.id, Math.max(0.1, Math.floor(s.cpus * factor * 100) / 100)]));
+  return new Map(running.map((s) => [s.id, globalCpus > 0 ? Math.min(s.cpus, globalCpus) : s.cpus]));
 }
 
 /** Validate a single server's own limits against the global cap and sane bounds. */

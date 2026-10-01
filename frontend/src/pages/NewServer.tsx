@@ -5,9 +5,9 @@ import { formatMB, get, post, type Server, type ServerType } from "../api";
 import { Expert, useApp, useErrorText, useToast } from "../ui";
 
 const SIZES = {
-  small: { memoryMB: 2048, players: 5 },
-  medium: { memoryMB: 4096, players: 15 },
-  large: { memoryMB: 8192, players: 40 },
+  small: { memoryMB: 2048 },
+  medium: { memoryMB: 4096 },
+  large: { memoryMB: 8192 },
 } as const;
 type Size = keyof typeof SIZES;
 
@@ -34,6 +34,7 @@ export default function NewServer() {
   const [size, setSize] = useState<Size>("small");
   const [memoryMB, setMemoryMB] = useState<number>(SIZES.small.memoryMB);
   const [cpus, setCpus] = useState(2);
+  const [players, setPlayers] = useState("");
   const [port, setPort] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -43,7 +44,9 @@ export default function NewServer() {
   const maxMem = limits?.memoryMB ? limits.memoryMB - 512 : (system?.host.memoryMB ?? 16384);
   const maxCpu = limits?.cpus || system?.host.cpus || 4;
   const overhead = (m: number) => m + Math.max(512, Math.round(m * 0.25));
-  const free = limits?.memoryMB ? limits.memoryMB - (system?.usage.reserved.memoryMB ?? 0) : Infinity;
+  const playersOk = Number(players) >= 1 && Number(players) <= 500;
+  // Limits of running servers may add up to more than the budget; just say so.
+  const overBudget = Boolean(limits?.memoryMB) && overhead(memoryMB) + (system?.usage.reserved.memoryMB ?? 0) > (limits?.memoryMB ?? 0);
 
   useEffect(() => {
     setVersions(null);
@@ -72,6 +75,7 @@ export default function NewServer() {
         type,
         version: version || versions?.[0],
         size,
+        maxPlayers: Number(players),
         memoryMB,
         cpus,
         port: port ? Number(port) : undefined,
@@ -178,13 +182,31 @@ export default function NewServer() {
       {step === 3 && (
         <div className="panel stack">
           <h2>{t("newServer.sizeTitle")}</h2>
-          <div className="choices">
-            {(Object.keys(SIZES) as Size[]).map((s) => (
-              <button key={s} type="button" className="choice" aria-pressed={size === s} onClick={() => pickSize(s)} disabled={overhead(SIZES[s].memoryMB) > (limits?.memoryMB || Infinity)}>
-                <b>{t("newServer.upTo", { count: SIZES[s].players })}</b>
-                <small>{t("newServer.memoryOf", { mem: formatMB(SIZES[s].memoryMB) })}</small>
-              </button>
-            ))}
+          <label className="field">
+            {t("newServer.playersLabel")}
+            <input
+              id="new-players"
+              type="number"
+              inputMode="numeric"
+              min={1}
+              max={500}
+              autoFocus
+              placeholder={t("newServer.playersPlaceholder")}
+              value={players}
+              onChange={(e) => setPlayers(e.target.value.replace(/\D/g, "").slice(0, 3))}
+            />
+            <span className="hint">{t("newServer.playersHint")}</span>
+          </label>
+          <div className="field">
+            {t("newServer.sizeLabel")}
+            <div className="choices">
+              {(Object.keys(SIZES) as Size[]).map((s) => (
+                <button key={s} type="button" className="choice" aria-pressed={size === s} onClick={() => pickSize(s)} disabled={overhead(SIZES[s].memoryMB) > (limits?.memoryMB || Infinity)}>
+                  <b>{t(`newServer.size.${s}`)}</b>
+                  <small>{t("newServer.memoryOf", { mem: formatMB(SIZES[s].memoryMB) })}</small>
+                </button>
+              ))}
+            </div>
           </div>
           {kind === "mods" && <p className="hint">{t("newServer.modsMemoryHint")}</p>}
           {type === "FOLIA" && <p className="hint">{t("newServer.foliaHint")}</p>}
@@ -208,13 +230,7 @@ export default function NewServer() {
               <input id="new-port" inputMode="numeric" placeholder={t("newServer.portAuto")} value={port} onChange={(e) => setPort(e.target.value.replace(/\D/g, ""))} />
             </label>
           </Expert>
-          {Number.isFinite(free) && (
-            <p className="hint">
-              {overhead(memoryMB) > free
-                ? t("newServer.notEnoughFree", { free: formatMB(Math.max(0, free)) })
-                : t("newServer.budget", { need: formatMB(overhead(memoryMB)), free: formatMB(free) })}
-            </p>
-          )}
+          {overBudget && <p className="hint">{t("newServer.overBudget", { limit: formatMB(limits?.memoryMB ?? 0) })}</p>}
           <p className="hint">
             {t("newServer.eulaPrefix")}{" "}
             <a href="https://aka.ms/MinecraftEULA" target="_blank" rel="noreferrer">
@@ -228,7 +244,7 @@ export default function NewServer() {
               {t("common.back")}
             </button>
             <div className="spacer" />
-            <button className="btn big" disabled={busy} onClick={create}>
+            <button className="btn big" disabled={busy || !playersOk} onClick={create}>
               {busy ? t("newServer.creating") : t("newServer.create")}
             </button>
           </div>

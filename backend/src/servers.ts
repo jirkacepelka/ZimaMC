@@ -12,15 +12,15 @@ import { lanIp, publicIp } from "./network/ip.js";
 import type { Playit } from "./network/playit.js";
 import { closePort, openPort } from "./network/upnp.js";
 import type { Players } from "./players.js";
-import { assertFitsGlobalLimit, assertServerLimits, containerMemoryMB, effectiveCpus, reserved } from "./resources.js";
+import { assertServerLimits, containerMemoryMB, effectiveCpus, reserved } from "./resources.js";
 import { detectServices, serviceById } from "./services.js";
 import { HttpError, type ExtraPort, type ServerConfig, type ServerType, type Store } from "./store.js";
 import { listVersions } from "./versions.js";
 
 export const SIZE_PRESETS = {
-  small: { memoryMB: 2048, maxPlayers: 5 },
-  medium: { memoryMB: 4096, maxPlayers: 15 },
-  large: { memoryMB: 8192, maxPlayers: 40 },
+  small: { memoryMB: 2048 },
+  medium: { memoryMB: 4096 },
+  large: { memoryMB: 8192 },
 } as const;
 
 export interface CreateServerInput {
@@ -28,6 +28,8 @@ export interface CreateServerInput {
   type: ServerType;
   version?: string;
   size?: keyof typeof SIZE_PRESETS;
+  /** Chosen by the user; 20 (the Minecraft default) when a client leaves it out. */
+  maxPlayers?: number;
   memoryMB?: number;
   cpus?: number;
   port?: number;
@@ -100,6 +102,8 @@ export class Servers {
     if (!name) throw new HttpError(400, "name_required");
     if (!SERVER_TYPES.includes(input.type)) throw new HttpError(400, "invalid_type");
     const preset = SIZE_PRESETS[input.size ?? "small"] ?? SIZE_PRESETS.small;
+    const maxPlayers = Math.round(Number(input.maxPlayers ?? 20));
+    if (!Number.isFinite(maxPlayers) || maxPlayers < 1 || maxPlayers > 500) throw new HttpError(400, "invalid_max_players");
     const memoryMB = Math.round(input.memoryMB ?? preset.memoryMB);
     const cpus = Number(input.cpus ?? this.cpuDefault());
     assertServerLimits(this.store.settings, memoryMB, cpus);
@@ -126,7 +130,7 @@ export class Servers {
       memoryMB,
       cpus,
       port,
-      properties: defaultProperties(name, preset.maxPlayers),
+      properties: defaultProperties(name, maxPlayers),
       advanced: {},
       autoStart: true,
       projects: [],
@@ -222,13 +226,14 @@ export class Servers {
   async checkCanStart(id: string) {
     const s = this.get(id);
     if (this.busy.has(id)) throw new HttpError(409, "server_busy");
-    assertFitsGlobalLimit(this.store.settings, await this.runningServers(), s);
+    // Servers may add up to more than the global limit, but not one alone (e.g. after the limit was lowered).
+    assertServerLimits(this.store.settings, s.memoryMB, s.cpus);
   }
 
   async start(id: string) {
     const s = this.get(id);
     await this.exclusive(id, async () => {
-      assertFitsGlobalLimit(this.store.settings, await this.runningServers(), s);
+      assertServerLimits(this.store.settings, s.memoryMB, s.cpus);
       await ensureDir(serverDir(id));
       await this.syncServicePorts(id);
       this.setLive(id, { status: "starting" });

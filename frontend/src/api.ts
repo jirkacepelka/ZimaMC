@@ -71,6 +71,7 @@ export interface Server {
 export interface SystemInfo {
   version: string;
   docker: boolean;
+  platform: string;
   host: { memoryMB: number; cpus: number };
   suggestedLimits: { memoryMB: number; cpus: number };
   settings: {

@@ -52,7 +52,7 @@
   "login": {
     "title": "Přihlášení",
     "submit": "Přihlásit",
-    "forgot": "Zapomenuté heslo? V nastavení aplikace v ZimaOS přidej proměnnou RESET_PASSWORD=true a aplikaci restartuj. Pak si nastavíš nové heslo (a proměnnou zase smaž)."
+    "forgot": "Zapomněl jsi heslo? V ZimaOS otevři nastavení této aplikace, přidej proměnnou RESET_PASSWORD=true a aplikaci restartuj. Ve Windows spusť ZimaMC.exe z terminálu s parametrem --reset-password. Pak si zvolíš nové heslo (potom spouštěj normálně)."
   },
   "limits": {
     "memory": "Paměť (RAM) pro všechny servery",
@@ -61,7 +61,7 @@
     "cores_few": "{{count}} jádra",
     "cores_many": "{{count}} jádra",
     "cores_other": "{{count}} jader",
-    "explain": "Paměť se rezervuje: server se spustí, jen pokud se jeho paměť ještě vejde. Procesor se sdílí: když běží víc serverů, rozdělí si limit mezi sebe."
+    "explain": "Každý server má vlastní limit paměti a procesoru a žádný nemůže být větší než tohle. Dohromady se můžou sečíst na víc: servery málokdy využívají vše najednou."
   },
   "status": {
     "offline": "Vypnuto",
@@ -113,7 +113,7 @@
     "running": "Běží {{running}} z {{total}}",
     "create": "Vytvořit server",
     "memory": "Využitá paměť",
-    "reserved": "{{mem}} rezervují běžící servery",
+    "reserved": "{{mem}} povoleno běžícím serverům (může být i víc než limit)",
     "cpu": "Procesor (limit {{cores}} z {{total}} jader)",
     "cpuHint": "100 % odpovídá jednomu celému jádru.",
     "disk": "Využité místo na disku",
@@ -148,23 +148,27 @@
     "version": "Verze Minecraftu",
     "latest": "Nejnovější ({{version}})",
     "versionHint": "Hráči musí mít v launcheru stejnou verzi.",
-    "sizeTitle": "Kolik hráčů?",
-    "upTo_one": "Až {{count}} hráč",
-    "upTo_few": "Až {{count}} hráči",
-    "upTo_many": "Až {{count}} hráčů",
-    "upTo_other": "Až {{count}} hráčů",
+    "sizeTitle": "Jak velký má být?",
     "memoryOf": "{{mem}} paměti",
     "modsMemoryHint": "Modpacky často potřebují víc paměti: vyber aspoň střední velikost.",
     "portAuto": "Automaticky",
-    "budget": "Za běhu potřebuje {{need}}. Z tvého limitu je volných {{free}}.",
-    "notEnoughFree": "Z tvého limitu je teď volných jen {{free}}. Server se vytvoří a spustí se, až vypneš jiný server.",
     "eulaPrefix": "Vytvořením serveru souhlasíš s",
     "eula": "licencí Minecraftu (EULA)",
     "create": "Vytvořit a spustit",
     "creating": "Vytvářím…",
     "created": "Server je vytvořený a právě se spouští.",
     "createdNotStarted": "Server je vytvořený, ale nespustil se: {{reason}}",
-    "foliaHint": "Folia se vyplatí při velkém počtu hráčů a jader procesoru. Dej jí aspoň 2 jádra. Nabízíme jen pluginy označené pro Folii."
+    "foliaHint": "Folia se vyplatí při velkém počtu hráčů a jader procesoru. Dej jí aspoň 2 jádra. Nabízíme jen pluginy označené pro Folii.",
+    "playersLabel": "Max. hráčů",
+    "playersPlaceholder": "např. 10",
+    "playersHint": "Kolik lidí může být online najednou. Rozhoduješ ty, později to změníš v nastavení serveru.",
+    "sizeLabel": "Paměť",
+    "size": {
+      "small": "Malý",
+      "medium": "Střední",
+      "large": "Velký"
+    },
+    "overBudget": "Spolu s ostatními běžícími servery je to víc, než tvůj limit {{limit}}. To funguje, dokud nejedou všechny naplno najednou."
   },
   "tabs": {
     "label": "Části serveru",
@@ -433,7 +437,7 @@
     "pvp": "Hráči si můžou ubližovat (PvP)",
     "autoStart": "Spustit automaticky po startu ZimaOS",
     "performance": "Výkon",
-    "performanceHint": "Víc paměti pomůže při větším počtu hráčů a modů. Když běží víc serverů, procesor se mezi ně spravedlivě dělí.",
+    "performanceHint": "Víc paměti pomůže při větším počtu hráčů a modů.",
     "viewDistance": "Dohled (chunky)",
     "version": "Verze Minecraftu",
     "versionWarn": "Nejdřív zálohuj. Aktualizace obvykle projde, ale návrat na starší verzi může svět poškodit.",
@@ -456,7 +460,7 @@
     "title": "Nastavení",
     "limitsTitle": "Limit výkonu",
     "limitsText": "Kolik z tohoto počítače smí všechny Minecraft servery využít dohromady.",
-    "reservedNow": "Běžící servery teď rezervují {{mem}}.",
+    "reservedNow": "Běžícím serverům je teď dohromady povoleno {{mem}}.",
     "suggested": "Použít doporučené hodnoty",
     "networkTitle": "Síť",
     "upnp": "Automaticky otevírat porty na routeru (UPnP)",
@@ -480,7 +484,7 @@
     "too_many_attempts": "Příliš mnoho pokusů. Počkej minutu a zkus to znovu.",
     "already_set_up": "ZimaMC už je nastavené. Přihlas se.",
     "server_not_found": "Tenhle server už neexistuje.",
-    "limit_memory": "V limitu není dost paměti: server potřebuje {{need}}, volných je jen {{free}}. Vypni jiný server, dej tomuhle méně paměti, nebo zvyš limit v Nastavení.",
+    "limit_memory": "Tento server by potřeboval {{need}}, což je víc než celý tvůj limit ({{free}}). Dej mu míň paměti nebo limit zvyš v Nastavení.",
     "limit_cpu": "Server chce víc procesoru ({{need}} jader), než dovoluje limit ({{free}}). Sniž to v nastavení serveru, nebo zvyš limit.",
     "memory_too_low": "Server potřebuje aspoň 512 MB paměti.",
     "cpu_too_low": "Server potřebuje aspoň čtvrtinu jádra procesoru.",
@@ -490,7 +494,7 @@
     "binary_file": "Tohle není textový soubor. Stáhni si ho.",
     "not_found": "Nenalezeno.",
     "bad_request": "Neplatný požadavek.",
-    "docker_unavailable": "ZimaMC se nedostane k Dockeru. Zkontroluj, že má aplikace přístup k /var/run/docker.sock.",
+    "docker_unavailable": "ZimaMC se nemůže připojit k Dockeru. Ve Windows nainstaluj a spusť Docker Desktop. V ZimaOS zkontroluj, že má aplikace přístup k /var/run/docker.sock.",
     "network_error": "Nepodařilo se spojit s {{url}}. Zkontroluj připojení k internetu.",
     "download_failed": "Stahování selhalo. Zkus to později.",
     "versions_unavailable": "Nepodařilo se načíst seznam verzí Minecraftu. Zkontroluj připojení k internetu.",
@@ -525,7 +529,8 @@
     "playit_error": "playit.gg hlásí problém: {{message}}",
     "playit_no_claim": "Nejdřív začni připojovat playit.gg.",
     "playit_not_connected": "Nejdřív připoj playit.gg.",
-    "invalid_ip": "Tohle není platná IPv4 adresa."
+    "invalid_ip": "Tohle není platná IPv4 adresa.",
+    "invalid_max_players": "Zvol maximální počet hráčů od 1 do 500."
   },
   "details": {
     "about": "Popis",
@@ -582,5 +587,9 @@
     "protocol": "Protokol",
     "add": "Přidat port",
     "save": "Uložit porty"
+  },
+  "windows": {
+    "getDocker": "Stáhnout Docker Desktop",
+    "stayOn": "ZimaMC běží na tomhle počítači: servery jsou online jen dokud je zapnutý a nespí. Docker Desktop musí běžet."
   }
 }

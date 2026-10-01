@@ -73,7 +73,20 @@ export default function Dashboard() {
 
   return (
     <main>
-      {system && !system.docker && <div className="notice error">{t("errors.docker_unavailable")}</div>}
+      {system && !system.docker && (
+        <div className="notice error">
+          {t("errors.docker_unavailable")}
+          {system.platform === "win32" && (
+            <>
+              {" "}
+              <a href="https://www.docker.com/products/docker-desktop/" target="_blank" rel="noreferrer">
+                {t("windows.getDocker")}
+              </a>
+            </>
+          )}
+        </div>
+      )}
+      {system?.docker && system.platform === "win32" && <div className="notice">{t("windows.stayOn")}</div>}
       <div className="row">
         <div>
           <h1>{t("dashboard.title")}</h1>

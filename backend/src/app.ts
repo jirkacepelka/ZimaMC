@@ -120,6 +120,7 @@ export async function buildApp(deps: AppDeps = {}) {
     return {
       version: VERSION,
       docker: Boolean(info),
+      platform: process.platform,
       host,
       suggestedLimits: defaultLimits(host),
       settings: { ...settings, cloudflareConnected: Boolean(cloudflare), playitConnected: Boolean(pl) },

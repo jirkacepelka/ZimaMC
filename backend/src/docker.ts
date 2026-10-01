@@ -1,6 +1,7 @@
 import Docker from "dockerode";
+import path from "node:path";
 import { PassThrough, type Readable } from "node:stream";
-import { CONTAINER_PREFIX, HOST_DATA_DIR, MC_IMAGE } from "./config.js";
+import { CONTAINER_PREFIX, HOST_DATA_DIR, IS_WINDOWS, MC_IMAGE } from "./config.js";
 import { containerEnv, imageTag, plainText } from "./minecraft.js";
 import { containerMemoryMB } from "./resources.js";
 import type { ServerConfig } from "./store.js";
@@ -22,7 +23,8 @@ export class DockerManager {
   stopping = new Set<string>();
 
   constructor(docker?: Docker) {
-    this.docker = docker ?? new Docker({ socketPath: process.env.DOCKER_SOCKET ?? "/var/run/docker.sock" });
+    // Docker Desktop on Windows listens on a named pipe instead of a Unix socket.
+    this.docker = docker ?? new Docker({ socketPath: process.env.DOCKER_SOCKET ?? (IS_WINDOWS ? "//./pipe/docker_engine" : "/var/run/docker.sock") });
   }
 
   async info() {
@@ -110,7 +112,7 @@ export class DockerManager {
       Tty: false,
       OpenStdin: true,
       HostConfig: {
-        Binds: [`${HOST_DATA_DIR}/servers/${s.id}:/data`],
+        Binds: [`${path.join(HOST_DATA_DIR, "servers", s.id)}:/data`],
         PortBindings: Object.fromEntries([
           ["25565/tcp", [{ HostPort: String(s.port) }]],
           ...(s.extraPorts ?? []).map((p) => [`${p.containerPort}/${p.protocol}`, [{ HostPort: String(p.hostPort) }]]),

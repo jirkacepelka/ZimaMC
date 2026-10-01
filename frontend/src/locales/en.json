@@ -52,14 +52,14 @@
   "login": {
     "title": "Log in",
     "submit": "Log in",
-    "forgot": "Forgot the password? In ZimaOS, open this app's settings, add the variable RESET_PASSWORD=true and restart the app. You can then choose a new password (remove the variable afterwards)."
+    "forgot": "Forgot the password? In ZimaOS, open this app's settings, add the variable RESET_PASSWORD=true and restart the app. On Windows, start ZimaMC.exe from a terminal with --reset-password. You can then choose a new password (start normally afterwards)."
   },
   "limits": {
     "memory": "Memory (RAM) for all servers",
     "cpu": "CPU for all servers",
     "cores_one": "{{count}} core",
     "cores_other": "{{count}} cores",
-    "explain": "Memory is reserved: a server only starts if its memory still fits. CPU is shared: when several servers run, they split the CPU limit between them."
+    "explain": "Every server gets its own memory and CPU limit, and none can be bigger than this. Together they may add up to more: servers rarely all use everything at the same time."
   },
   "status": {
     "offline": "Offline",
@@ -111,7 +111,7 @@
     "running": "{{running}} of {{total}} running",
     "create": "Create server",
     "memory": "Memory in use",
-    "reserved": "{{mem}} reserved by running servers",
+    "reserved": "{{mem}} allowed for running servers (may add up to more than the limit)",
     "cpu": "CPU (limit {{cores}} of {{total}} cores)",
     "cpuHint": "100 % equals one full core.",
     "disk": "Disk space used",
@@ -146,21 +146,27 @@
     "version": "Minecraft version",
     "latest": "Newest ({{version}})",
     "versionHint": "Players need the same version in their launcher.",
-    "sizeTitle": "How many players?",
-    "upTo_one": "Up to {{count}} player",
-    "upTo_other": "Up to {{count}} players",
+    "sizeTitle": "How big should it be?",
     "memoryOf": "{{mem}} memory",
     "modsMemoryHint": "Modpacks often need more memory: pick at least the middle size.",
     "portAuto": "Automatic",
-    "budget": "Needs {{need}} while running. {{free}} of your limit is free.",
-    "notEnoughFree": "Only {{free}} of your limit is free right now. The server will be created, and starts once other servers are stopped.",
     "eulaPrefix": "By creating a server you agree to the",
     "eula": "Minecraft EULA",
     "create": "Create and start",
     "creating": "Creating…",
     "created": "Server created. It's starting now.",
     "createdNotStarted": "Server created but not started: {{reason}}",
-    "foliaHint": "Folia shines with many players and CPU cores. Give it at least 2 cores. Only plugins marked for Folia are offered."
+    "foliaHint": "Folia shines with many players and CPU cores. Give it at least 2 cores. Only plugins marked for Folia are offered.",
+    "playersLabel": "Max players",
+    "playersPlaceholder": "e.g. 10",
+    "playersHint": "How many people may be online at once. You decide; you can change it later in the server's settings.",
+    "sizeLabel": "Memory",
+    "size": {
+      "small": "Small",
+      "medium": "Medium",
+      "large": "Large"
+    },
+    "overBudget": "Together with your other running servers this is more than your limit of {{limit}}. That works as long as they aren't all busy at once."
   },
   "tabs": {
     "label": "Server sections",
@@ -417,7 +423,7 @@
     "pvp": "Players can hurt each other (PvP)",
     "autoStart": "Start automatically when ZimaOS starts",
     "performance": "Performance",
-    "performanceHint": "More memory helps with more players and mods. CPU is shared fairly when several servers run.",
+    "performanceHint": "More memory helps with more players and mods.",
     "viewDistance": "View distance (chunks)",
     "version": "Minecraft version",
     "versionWarn": "Back up first. Updating usually works, but going back to an older version can damage the world.",
@@ -440,7 +446,7 @@
     "title": "Settings",
     "limitsTitle": "Performance limit",
     "limitsText": "How much of this machine all Minecraft servers may use together.",
-    "reservedNow": "Running servers reserve {{mem}} right now.",
+    "reservedNow": "Running servers are allowed {{mem}} together.",
     "suggested": "Use recommended values",
     "networkTitle": "Network",
     "upnp": "Open ports on the router automatically (UPnP)",
@@ -464,7 +470,7 @@
     "too_many_attempts": "Too many attempts. Wait a minute and try again.",
     "already_set_up": "ZimaMC is already set up. Log in instead.",
     "server_not_found": "This server no longer exists.",
-    "limit_memory": "Not enough memory in your limit: this server needs {{need}}, but only {{free}} is free. Stop another server, give this one less memory, or raise the limit in Settings.",
+    "limit_memory": "This server would need {{need}}, which is more than your whole limit ({{free}}). Give it less memory or raise the limit in Settings.",
     "limit_cpu": "This server wants more CPU ({{need}} cores) than your limit allows ({{free}}). Lower it in the server's settings or raise the limit.",
     "memory_too_low": "A server needs at least 512 MB of memory.",
     "cpu_too_low": "A server needs at least a quarter of a CPU core.",
@@ -474,7 +480,7 @@
     "binary_file": "This file isn't text. Download it instead.",
     "not_found": "Not found.",
     "bad_request": "The request was invalid.",
-    "docker_unavailable": "ZimaMC can't reach Docker. Make sure the app has access to /var/run/docker.sock.",
+    "docker_unavailable": "ZimaMC can't reach Docker. On Windows, install and start Docker Desktop. On ZimaOS, make sure the app has access to /var/run/docker.sock.",
     "network_error": "Couldn't reach {{url}}. Check the internet connection.",
     "download_failed": "The download failed. Try again later.",
     "versions_unavailable": "Couldn't load the list of Minecraft versions. Check the internet connection.",
@@ -509,7 +515,8 @@
     "playit_error": "playit.gg reported a problem: {{message}}",
     "playit_no_claim": "Start connecting playit.gg first.",
     "playit_not_connected": "Connect playit.gg first.",
-    "invalid_ip": "That isn't a valid IPv4 address."
+    "invalid_ip": "That isn't a valid IPv4 address.",
+    "invalid_max_players": "Choose a maximum number of players between 1 and 500."
   },
   "details": {
     "about": "Description",
@@ -545,5 +552,9 @@
     "protocol": "Protocol",
     "add": "Add port",
     "save": "Save ports"
+  },
+  "windows": {
+    "getDocker": "Get Docker Desktop",
+    "stayOn": "ZimaMC is running on this PC: your servers are only online while it is switched on and awake. Docker Desktop has to be running."
   }
 }

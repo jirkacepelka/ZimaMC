@@ -1,7 +1,14 @@
+import os from "node:os";
 import path from "node:path";
 
-/** Directory inside this container where ZimaMC keeps everything. */
-export const DATA_DIR = path.resolve(process.env.DATA_DIR ?? "./data");
+export const VERSION = "0.9.0";
+export const IS_WINDOWS = process.platform === "win32";
+
+/**
+ * Directory where ZimaMC keeps everything. In the container it is mounted by the
+ * app definition; on Windows it lives in the user's AppData folder.
+ */
+export const DATA_DIR = path.resolve(process.env.DATA_DIR ?? (IS_WINDOWS ? path.join(process.env.APPDATA ?? os.homedir(), "ZimaMC") : "./data"));
 
 /**
  * The same directory as seen by the Docker host. Minecraft servers run as
@@ -10,8 +17,8 @@ export const DATA_DIR = path.resolve(process.env.DATA_DIR ?? "./data");
 export const HOST_DATA_DIR = process.env.HOST_DATA_DIR ?? DATA_DIR;
 
 export const PORT = Number(process.env.PORT ?? 8765);
-export const HOST = process.env.HOST ?? "0.0.0.0";
-export const VERSION = "0.1.0";
+// On a desktop PC the panel is only for that PC unless the user opts in; on a NAS it is for the whole network.
+export const HOST = process.env.HOST ?? (IS_WINDOWS ? "127.0.0.1" : "0.0.0.0");
 
 export const SERVERS_DIR = path.join(DATA_DIR, "servers");
 export const BACKUPS_DIR = path.join(DATA_DIR, "backups");

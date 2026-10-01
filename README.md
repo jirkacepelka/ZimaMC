@@ -1,17 +1,15 @@
 # ZimaMC
 
-**Your own Minecraft server in a few clicks, for ZimaOS.**
+**Your own Minecraft server in a few clicks, for ZimaOS and Windows.**
 
-ZimaMC is a web app for [ZimaOS](https://www.zimaspace.com/) (and CasaOS) that lets anyone create and run Minecraft Java servers without touching a terminal. The simple path is three steps: name, game, size. Everything else is behind **Expert mode**.
+ZimaMC is a web app for [ZimaOS](https://www.zimaspace.com/) (and CasaOS), and a single `.exe` for Windows, that lets anyone create and run Minecraft Java servers without touching a terminal. The simple path is three steps: name, game, size. Everything else is behind **Expert mode**.
 
 ![Dashboard](docs/screenshot-dashboard.png)
 
 ## Features
 
 - **One-click servers**: Paper and Folia (plugins), Vanilla, Fabric and Forge (mods). Several servers at once.
-- **Performance limits**: every server gets its own memory and CPU limit, and you set a global limit for all servers together, so Minecraft never takes over the whole machine.
-  - Memory is *reserved*: a server only starts if its memory still fits in the global limit.
-  - CPU is *shared*: running servers are scaled down live so that together they stay within the global CPU limit.
+- **Performance limits**: every server gets its own memory and CPU limit, and you set a global limit that no single server can exceed, so Minecraft never takes over the whole machine. The limits of running servers may add up to more than the global limit, since servers rarely use everything at once.
 - **Plugins and mods from [Modrinth](https://modrinth.com)**: search, install with dependencies, update and remove. Only versions compatible with your server are shown.
 - **Let friends join**, in three levels:
   1. Your public address, with automatic router port opening (UPnP / NAT-PMP) and a connection test.
@@ -23,6 +21,14 @@ ZimaMC is a web app for [ZimaOS](https://www.zimaspace.com/) (and CasaOS) that l
 - **Backups**: manual or scheduled, with retention, restore and download.
 - **File manager**: browse, edit, upload and download.
 - **Multilingual** (English and Czech so far). Adding a language means adding one JSON file, see [CONTRIBUTING.md](CONTRIBUTING.md).
+
+## Install on Windows
+
+1. Install and start [Docker Desktop](https://www.docker.com/products/docker-desktop/).
+2. Download `ZimaMC.exe` from the [latest release](https://github.com/jirkacepelka/ZimaMC/releases/latest) and start it. Windows may warn about an unknown app (the file is not code-signed yet): choose **More info → Run anyway**.
+3. The web page opens at `http://localhost:8765`. Choose a password and create your first server.
+
+Keep the window open while you use ZimaMC; closing it only stops the web page, your Minecraft servers keep running in Docker. Your PC must stay on and awake for friends to join, which makes this a good way to try ZimaMC but not ideal for a permanent server. Data lives in `%APPDATA%\ZimaMC`. The page is only reachable from the same PC unless you set `HOST=0.0.0.0`. Forgot the password? Start `ZimaMC.exe --reset-password` from a terminal.
 
 ## Install on ZimaOS
 
@@ -55,6 +61,7 @@ npm run dev          # backend on :8765, frontend on :5173 (proxies /api)
 npm test             # backend tests
 npm run typecheck
 npm run build        # production build
+npm run build:app    # single-file app (ZimaMC.exe on Windows) in dist-app/
 ```
 
 Docker must be running locally. By default data goes to `./data`; set `DATA_DIR` to change it.
@@ -65,7 +72,8 @@ Docker must be running locally. By default data goes to `./data`; set `DATA_DIR`
 | `DATA_DIR` | `./data` | Where servers, backups and settings are stored |
 | `HOST_DATA_DIR` | `DATA_DIR` | The same folder as the Docker host sees it (only needed if the paths differ) |
 | `MC_IMAGE` | `itzg/minecraft-server` | Image used for servers |
-| `RESET_PASSWORD` | – | `true` removes the password on start |
+| `HOST` | `0.0.0.0` (`127.0.0.1` on Windows) | Address the web UI listens on |
+| `RESET_PASSWORD` | – | `true` removes the password on start (or start with `--reset-password`) |
 
 ## License
 

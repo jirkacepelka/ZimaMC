@@ -88,30 +88,36 @@ describe("API", () => {
   });
 
   it("creates a server with the newest version and starts it", async () => {
-    const r = await req("POST", "/api/servers", { name: "Survival", type: "PAPER", size: "medium" });
+    const r = await req("POST", "/api/servers", { name: "Survival", type: "PAPER", size: "medium", maxPlayers: 12 });
     expect(r.statusCode).toBe(200);
     const { server, startError } = r.json();
     expect(startError).toBeUndefined();
     expect(server).toMatchObject({ name: "Survival", version: "1.21.8", memoryMB: 4096, port: expect.any(Number) });
-    expect(server.properties.maxPlayers).toBe(15);
+    expect(server.properties.maxPlayers).toBe(12);
     await new Promise((r) => setTimeout(r, 20));
     expect(docker.running.has(server.id)).toBe(true);
   });
 
-  it("enforces the global memory limit across servers", async () => {
-    // 12288 MB limit, first server reserves 5120 MB; an 8 GB heap needs 10240 MB.
+  it("lets servers add up to more than the global limit, but not one above it", async () => {
+    // Limit is 12288 MB. The first server needs 5120 MB, an 8 GB heap needs 10240 MB: together more than the limit.
     const r = await req("POST", "/api/servers", { name: "Big", type: "VANILLA", version: "1.21.8", size: "large" });
     const body = r.json();
-    expect(body.startError).toMatchObject({ error: "limit_memory" });
-    expect(docker.running.has(body.server.id)).toBe(false);
-    expect((await req("POST", `/api/servers/${body.server.id}/start`)).json().error).toBe("limit_memory");
-
-    // Lowering its memory makes it fit.
-    await req("PATCH", `/api/servers/${body.server.id}`, { memoryMB: 4096 });
-    expect((await req("POST", `/api/servers/${body.server.id}/start`)).statusCode).toBe(200);
+    expect(body.startError).toBeUndefined();
     await new Promise((r) => setTimeout(r, 20));
-    // Two servers with 2 CPUs each share the 3-CPU global limit.
-    expect([...docker.cpus.values()]).toEqual([1.5, 1.5]);
+    expect(docker.running.has(body.server.id)).toBe(true);
+    // Each keeps its own CPU limit even though 2 + 2 is more than the 3-CPU budget.
+    expect([...docker.cpus.values()]).toEqual([2, 2]);
+
+    // A single server above the whole budget is still refused.
+    const huge = await req("POST", "/api/servers", { name: "Huge", type: "VANILLA", version: "1.21.8", memoryMB: 12000, start: false });
+    expect(huge.json().error).toBe("limit_memory");
+  });
+
+  it("takes the player limit from the user", async () => {
+    expect((await req("POST", "/api/servers", { name: "Z", type: "PAPER", version: "1.21.8", maxPlayers: 0, start: false })).json().error).toBe("invalid_max_players");
+    const r = await req("POST", "/api/servers", { name: "Z", type: "PAPER", version: "1.21.8", maxPlayers: 7, start: false });
+    expect(r.json().server.properties.maxPlayers).toBe(7);
+    await req("DELETE", `/api/servers/${r.json().server.id}`);
   });
 
   it("rejects duplicate ports and bad input", async () => {
