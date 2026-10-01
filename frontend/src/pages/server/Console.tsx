@@ -36,7 +36,10 @@ export default function Console({ server }: ServerTabProps) {
         const parts = buf.split("\n");
         buf = parts.pop() ?? "";
         // Strip ANSI colour codes from the log.
-        const clean = parts.map((p) => p.replace(/\x1b\[[0-9;]*m/g, "").replace(/\r$/, ""));
+        const clean = parts
+          .map((p) => p.replace(/\x1b\[[0-9;]*m/g, "").replace(/\r$/, ""))
+          // ZimaMC's own RCON connections (one per command) are just noise.
+          .filter((p) => !/Thread RCON Client .* (started|shutting down)/.test(p) && !/^\s*(started|shutting down)\s*$/.test(p));
         setLines((ls) => [...ls, ...clean].slice(-MAX_LINES));
       };
       ws.onclose = () => {

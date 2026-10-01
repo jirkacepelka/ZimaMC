@@ -5,6 +5,7 @@ import type { DockerManager } from "./docker.js";
 import { chownForServer, serverDir } from "./files.js";
 import { fetchJson } from "./http.js";
 import { isValidPlayerName, parsePlayerList } from "./minecraft.js";
+import { ping } from "./ping.js";
 import { HttpError, type ServerConfig } from "./store.js";
 
 export type PlayerList = "whitelist" | "ops" | "banned";
@@ -53,6 +54,20 @@ async function lookupUuid(name: string) {
 export class Players {
   constructor(private docker: DockerManager) {}
 
+  /**
+   * Who is online, for frequent polling. Uses the server-list ping, which
+   * doesn't write to the server log (RCON logs every connection).
+   */
+  async quickOnline(s: ServerConfig) {
+    try {
+      const r = await ping("127.0.0.1", s.port);
+      return { online: r.online, max: r.max || s.properties.maxPlayers, names: r.names };
+    } catch {
+      return { online: 0, max: s.properties.maxPlayers, names: [] as string[] };
+    }
+  }
+
+  /** Exact list of online players (via the "list" command). Used when the Players page opens. */
   async online(s: ServerConfig) {
     if (!(await this.docker.isRunning(s.id))) return { online: 0, max: s.properties.maxPlayers, names: [] as string[] };
     try {

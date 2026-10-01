@@ -351,7 +351,7 @@ export class Servers {
         const status = await this.docker.status(s.id);
         const running = status === "online" || status === "starting" || status === "stopping";
         const stats = running ? await this.docker.stats(s.id) : null;
-        const players = status === "online" ? await this.players.online(s) : { online: 0, max: s.properties.maxPlayers, names: [] };
+        const players = status === "online" ? await this.players.quickOnline(s) : { online: 0, max: s.properties.maxPlayers, names: [] };
         this.live.set(s.id, { status, stats, players });
       }),
     );
