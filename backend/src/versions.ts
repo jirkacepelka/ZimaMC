@@ -23,14 +23,34 @@ async function mojangReleases() {
   return sortDesc(m.versions.filter((v) => v.type === "release").map((v) => v.id));
 }
 
-/** Release versions available for a server type, newest first. */
-export async function listVersions(type: ServerType): Promise<string[]> {
+/**
+ * Paper's version list. The Fill v3 API groups versions by family
+ * ({"1.21": ["1.21.8", …]}); the old v2 API returned a flat array.
+ */
+export function parsePaperVersions(body: unknown): string[] {
+  const v = (body as { versions?: unknown })?.versions;
+  if (Array.isArray(v)) return sortDesc(v.map(String));
+  if (v && typeof v === "object") return sortDesc(Object.values(v).flat().map(String));
+  return [];
+}
+
+async function paperVersions() {
+  const sources = ["https://fill.papermc.io/v3/projects/paper", "https://api.papermc.io/v2/projects/paper"];
+  for (const url of sources) {
+    try {
+      const versions = parsePaperVersions(await fetchJson<unknown>(url));
+      if (versions.length) return versions;
+    } catch {
+      /* try the next source */
+    }
+  }
+  throw new Error("paper versions unavailable");
+}
+
+async function loaderVersions(type: ServerType): Promise<string[]> {
   switch (type) {
     case "PAPER":
-      return cached("paper", async () => {
-        const p = await fetchJson<{ versions: string[] }>("https://api.papermc.io/v2/projects/paper");
-        return sortDesc(p.versions);
-      });
+      return cached("paper", paperVersions);
     case "FABRIC":
       return cached("fabric", async () => {
         const f = await fetchJson<{ version: string; stable: boolean }[]>("https://meta.fabricmc.net/v2/versions/game");
@@ -45,5 +65,19 @@ export async function listVersions(type: ServerType): Promise<string[]> {
       });
     default:
       return cached("vanilla", mojangReleases);
+  }
+}
+
+/**
+ * Release versions available for a server type, newest first. If the
+ * loader's own list can't be loaded, fall back to Mojang's release list so
+ * creating a server never gets stuck on one unavailable website.
+ */
+export async function listVersions(type: ServerType): Promise<string[]> {
+  try {
+    return await loaderVersions(type);
+  } catch (e) {
+    if (type === "VANILLA") throw e;
+    return loaderVersions("VANILLA");
   }
 }

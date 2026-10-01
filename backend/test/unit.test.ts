@@ -8,6 +8,7 @@ import { compareVersions, containerEnv, defaultProperties, javaTagFor, parsePlay
 import { loadersFor, pickVersion, searchUrl } from "../src/modrinth.js";
 import { buildRecords, fqdn, isValidSubdomain, tokenTemplateUrl } from "../src/network/cloudflare.js";
 import { isCgnat } from "../src/network/ip.js";
+import { parsePaperVersions } from "../src/versions.js";
 import { dashUuid, offlineUuid } from "../src/players.js";
 import { assertFitsGlobalLimit, assertServerLimits, containerMemoryMB, defaultLimits, effectiveCpus } from "../src/resources.js";
 import { HttpError, type ServerConfig, type Settings } from "../src/store.js";
@@ -204,6 +205,19 @@ describe("cloudflare", () => {
       { key: "zone", type: "read" },
       { key: "dns", type: "edit" },
     ]);
+  });
+});
+
+describe("versions", () => {
+  it("reads Paper versions from the Fill v3 and the old v2 API", () => {
+    expect(parsePaperVersions({ versions: { "26.1": ["26.1.1", "26.1"], "1.21": ["1.21.8", "1.21.10", "1.21.9-pre1"] } })).toEqual([
+      "26.1.1",
+      "26.1",
+      "1.21.10",
+      "1.21.8",
+    ]);
+    expect(parsePaperVersions({ versions: ["1.20.6", "1.21.8"] })).toEqual(["1.21.8", "1.20.6"]);
+    expect(parsePaperVersions({})).toEqual([]);
   });
 });
 
