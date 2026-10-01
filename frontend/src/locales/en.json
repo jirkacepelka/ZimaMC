@@ -17,7 +17,8 @@
     "saved": "Saved",
     "delete": "Delete",
     "download": "Download",
-    "create": "Create"
+    "create": "Create",
+    "close": "Close"
   },
   "app": {
     "unreachableTitle": "Can't reach ZimaMC",
@@ -229,7 +230,10 @@
     "updated_other": "{{count}} updated.",
     "manual": "Added by hand (not from Modrinth)",
     "removeTitle": "Remove {{name}}?",
-    "removeText": "Its settings folder stays, so reinstalling it later keeps your configuration."
+    "removeText": "Its settings folder stays, so reinstalling it later keeps your configuration.",
+    "categories": "Categories",
+    "allCategories": "All",
+    "clientToo": "Players need it too"
   },
   "players": {
     "onlineTitle": "Online now: {{online}} / {{max}}",
@@ -473,5 +477,22 @@
     "playit_no_claim": "Start connecting playit.gg first.",
     "playit_not_connected": "Connect playit.gg first.",
     "invalid_ip": "That isn't a valid IPv4 address."
+  },
+  "details": {
+    "about": "Description",
+    "changes": "What's new",
+    "updated": "updated {{date}}",
+    "compatible": "Works with your server: version {{version}}",
+    "noCompatible": "There's no version of this for your server's Minecraft version.",
+    "updateReady": "an update is available",
+    "channel": {
+      "beta": "beta",
+      "alpha": "alpha (experimental)"
+    },
+    "clientRequired": "Every player also has to install this mod in their game, otherwise they can't join.",
+    "source": "Source code",
+    "wiki": "Wiki",
+    "issues": "Report a problem",
+    "license": "License: {{name}}"
   }
 }

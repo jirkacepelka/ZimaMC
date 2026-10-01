@@ -29,9 +29,17 @@ export function loadersFor(s: Pick<ServerConfig, "type">): string[] {
   }
 }
 
-export function searchUrl(s: Pick<ServerConfig, "type" | "version">, query: string, offset = 0, limit = 20) {
+/** Loader names appear among a project's categories; they aren't useful as tags. */
+const LOADER_TAGS = new Set([
+  "paper", "spigot", "bukkit", "purpur", "folia", "sponge", "velocity", "bungeecord", "waterfall",
+  "fabric", "forge", "neoforge", "quilt", "liteloader", "modloader", "rift", "datapack", "minecraft",
+]);
+export const contentTags = (cats: string[] = []) => cats.filter((c) => !LOADER_TAGS.has(c));
+
+export function searchUrl(s: Pick<ServerConfig, "type" | "version">, query: string, offset = 0, limit = 20, category?: string) {
   const loaders = loadersFor(s);
   const facets = [loaders.map((l) => `categories:${l}`), [`versions:${s.version}`], ["server_side:required", "server_side:optional"]];
+  if (category) facets.push([`categories:${category}`]);
   const params = new URLSearchParams({
     query,
     limit: String(limit),
@@ -50,11 +58,15 @@ export interface SearchHit {
   icon_url?: string;
   downloads: number;
   author: string;
+  categories?: string[];
+  display_categories?: string[];
+  client_side?: string;
 }
 
-export async function search(s: ServerConfig, query: string, offset = 0) {
+export async function search(s: ServerConfig, query: string, offset = 0, category?: string) {
   if (!contentKind(s.type)) throw new HttpError(400, "no_plugins_for_vanilla");
-  const r = await fetchJson<{ hits: SearchHit[]; total_hits: number }>(searchUrl(s, query, offset), {}, "modrinth_error");
+  if (category && !/^[a-z0-9-]{1,40}$/.test(category)) throw new HttpError(400, "bad_request");
+  const r = await fetchJson<{ hits: SearchHit[]; total_hits: number }>(searchUrl(s, query, offset, 20, category), {}, "modrinth_error");
   return {
     total: r.total_hits,
     hits: r.hits.map((h) => ({
@@ -65,6 +77,8 @@ export async function search(s: ServerConfig, query: string, offset = 0) {
       iconUrl: h.icon_url,
       downloads: h.downloads,
       author: h.author,
+      tags: contentTags(h.display_categories ?? h.categories),
+      clientRequired: h.client_side === "required",
       installed: s.projects.some((p) => p.projectId === h.project_id),
     })),
   };
@@ -76,6 +90,8 @@ interface MrVersion {
   name: string;
   version_number: string;
   version_type: "release" | "beta" | "alpha";
+  date_published?: string;
+  changelog?: string | null;
   files: { url: string; filename: string; primary: boolean; hashes: { sha1: string; sha512?: string } }[];
   dependencies: { project_id?: string; version_id?: string; dependency_type: string }[];
 }
@@ -201,4 +217,89 @@ export async function manualJars(s: ServerConfig) {
   } catch {
     return [];
   }
+}
+
+interface MrProject {
+  id: string;
+  slug: string;
+  title: string;
+  description: string;
+  body: string;
+  icon_url?: string | null;
+  categories: string[];
+  additional_categories?: string[];
+  client_side: string;
+  server_side: string;
+  downloads: number;
+  followers: number;
+  published: string;
+  updated: string;
+  license?: { id: string; name: string; url?: string | null };
+  source_url?: string | null;
+  issues_url?: string | null;
+  wiki_url?: string | null;
+  discord_url?: string | null;
+  donation_urls?: { platform: string; url: string }[];
+  gallery?: { url: string; title?: string | null; description?: string | null; featured?: boolean; ordering?: number }[];
+  project_type: string;
+}
+
+/** Everything the detail view shows about one project, for this server. */
+export async function details(s: ServerConfig, projectId: string) {
+  if (!/^[\w-]{1,64}$/.test(projectId)) throw new HttpError(400, "bad_request");
+  const id = encodeURIComponent(projectId);
+  const [p, members, versions] = await Promise.all([
+    fetchJson<MrProject>(`${API}/project/${id}`, {}, "modrinth_error"),
+    fetchJson<{ role: string; user: { username: string } }[]>(`${API}/project/${id}/members`, {}, "modrinth_error").catch(() => []),
+    contentKind(s.type) ? compatibleVersions(s, projectId).catch(() => [] as MrVersion[]) : Promise.resolve([] as MrVersion[]),
+  ]);
+  const v = pickVersion(versions);
+  const installed = s.projects.find((x) => x.projectId === p.id);
+  return {
+    projectId: p.id,
+    slug: p.slug,
+    title: p.title,
+    description: p.description,
+    body: p.body,
+    iconUrl: p.icon_url ?? undefined,
+    tags: contentTags([...p.categories, ...(p.additional_categories ?? [])]),
+    clientSide: p.client_side,
+    serverSide: p.server_side,
+    downloads: p.downloads,
+    followers: p.followers,
+    published: p.published,
+    updated: p.updated,
+    license: p.license ? { id: p.license.id, name: p.license.name, url: p.license.url ?? undefined } : undefined,
+    authors: members.map((m) => ({ name: m.user.username, role: m.role })),
+    links: {
+      modrinth: `https://modrinth.com/${p.project_type === "plugin" ? "plugin" : "mod"}/${p.slug}`,
+      source: p.source_url ?? undefined,
+      issues: p.issues_url ?? undefined,
+      wiki: p.wiki_url ?? undefined,
+      discord: p.discord_url ?? undefined,
+    },
+    gallery: [...(p.gallery ?? [])]
+      .sort((a, b) => Number(b.featured) - Number(a.featured) || (a.ordering ?? 0) - (b.ordering ?? 0))
+      .map((g) => ({ url: g.url, title: g.title ?? undefined, description: g.description ?? undefined })),
+    compatible: v
+      ? { versionId: v.id, name: v.name, number: v.version_number, type: v.version_type, published: v.date_published, changelog: v.changelog ?? "" }
+      : null,
+    installed: installed ? { versionId: installed.versionId, fileName: installed.fileName } : null,
+  };
+}
+
+let categoryCache: { at: number; list: { name: string; projectType: string; header: string }[] } | undefined;
+
+/** Modrinth's category tags that apply to plugins or mods, for the search filter. */
+export async function categories(s: ServerConfig) {
+  const kind = contentKind(s.type);
+  if (!kind) return [];
+  if (!categoryCache || Date.now() - categoryCache.at > 24 * 3600_000) {
+    const list = await fetchJson<{ name: string; project_type: string; header: string }[]>(`${API}/tag/category`, {}, "modrinth_error");
+    categoryCache = { at: Date.now(), list: list.map((c) => ({ name: c.name, projectType: c.project_type, header: c.header })) };
+  }
+  // Plugins are listed under both "plugin" and "mod" on Modrinth.
+  const types = kind.projectType === "plugin" ? ["plugin", "mod"] : ["mod"];
+  const names = categoryCache.list.filter((c) => c.header === "categories" && types.includes(c.projectType)).map((c) => c.name);
+  return [...new Set(names)].sort();
 }

@@ -5,7 +5,7 @@ import { afterAll, describe, expect, it, vi } from "vitest";
 import { DATA_DIR } from "../src/config.js";
 import { serverDir } from "../src/files.js";
 import { defaultProperties } from "../src/minecraft.js";
-import { install, uninstall } from "../src/modrinth.js";
+import { categories, details, install, search, uninstall } from "../src/modrinth.js";
 import type { ServerConfig } from "../src/store.js";
 
 const jar = (name: string) => Buffer.from(`fake jar ${name}`);
@@ -50,6 +50,26 @@ vi.stubGlobal(
     requested.push(url);
     const u = new URL(url);
     if (u.host === "cdn.modrinth.com") return new Response(jar(u.pathname[1]));
+    if (u.pathname === "/v2/search")
+      return Response.json({
+        total_hits: 1,
+        hits: [{ project_id: "essentials", slug: "essentialsx", title: "EssentialsX", description: "d", downloads: 5, author: "md", display_categories: ["paper", "utility", "economy"], client_side: "unsupported" }],
+      });
+    if (u.pathname === "/v2/tag/category")
+      return Response.json([
+        { name: "economy", project_type: "plugin", header: "categories" },
+        { name: "economy", project_type: "mod", header: "categories" },
+        { name: "technology", project_type: "mod", header: "categories" },
+        { name: "16x", project_type: "resourcepack", header: "resolutions" },
+      ]);
+    if (u.pathname.endsWith("/members")) return Response.json([{ role: "Owner", user: { username: "mdcfe" } }]);
+    if (u.pathname === "/v2/project/essentials")
+      return Response.json({
+        id: "essentials", slug: "essentialsx", title: "EssentialsX", description: "Essentials", body: "# Hello", icon_url: null,
+        categories: ["paper", "utility"], additional_categories: ["economy"], client_side: "unsupported", server_side: "required",
+        downloads: 10, followers: 2, published: "2020", updated: "2026", license: { id: "GPL-3.0", name: "GPL" }, project_type: "plugin",
+        source_url: "https://github.com/EssentialsX/Essentials", gallery: [{ url: "b.png", featured: false, ordering: 1 }, { url: "a.png", featured: true, ordering: 2 }],
+      });
     const m = u.pathname.match(/^\/v2\/project\/(\w+)(\/version)?$/);
     if (m && m[2]) return Response.json(versions[m[1]] ?? []);
     if (m) return Response.json({ id: m[1], title: m[1].toUpperCase(), icon_url: null });
@@ -101,6 +121,31 @@ describe("Modrinth install", () => {
     s.projects = await install({ ...s, projects: [] }, "vault");
     await uninstall(s, "vault");
     expect(fs.existsSync(path.join(serverDir(s.id), "plugins/Vault.jar"))).toBe(false);
+  });
+
+  it("returns tags without loader names and filters by category", async () => {
+    const r = await search(s, "ess", 0, "economy");
+    expect(r.hits[0]).toMatchObject({ tags: ["utility", "economy"], clientRequired: false });
+    const facets = JSON.parse(new URL(requested.filter((x) => x.includes("/search")).pop()!).searchParams.get("facets")!);
+    expect(facets).toContainEqual(["categories:economy"]);
+    await expect(search(s, "", 0, "bad tag!")).rejects.toMatchObject({ code: "bad_request" });
+  });
+
+  it("collects project details for the detail view", async () => {
+    const d = await details(s, "essentials");
+    expect(d).toMatchObject({
+      title: "EssentialsX",
+      body: "# Hello",
+      tags: ["utility", "economy"],
+      authors: [{ name: "mdcfe", role: "Owner" }],
+      links: { modrinth: "https://modrinth.com/plugin/essentialsx", source: "https://github.com/EssentialsX/Essentials" },
+      compatible: { versionId: "v2", number: "2.21.0" },
+    });
+    expect(d.gallery.map((g) => g.url)).toEqual(["a.png", "b.png"]);
+  });
+
+  it("lists plugin categories", async () => {
+    expect(await categories(s)).toEqual(["economy", "technology"]);
   });
 
   it("refuses plugins on vanilla", async () => {

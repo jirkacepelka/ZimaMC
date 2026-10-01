@@ -205,3 +205,29 @@ tr.clickable:hover td { background: var(--panel-2); }
   h1 { font-size: 26px; }
 }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+
+/* ---------- project details ---------- */
+.modal-close { background: none; border: 2px solid var(--line); color: var(--muted); font-size: 22px; line-height: 1; width: 36px; height: 36px; cursor: pointer; flex: none; }
+.modal-close:hover { color: var(--fg); border-color: var(--muted); }
+.project-icon { width: 64px; height: 64px; flex: none; background: var(--panel-2); border: 2px solid var(--line); image-rendering: pixelated; object-fit: cover; }
+.tag { background: var(--panel-2); border: 2px solid var(--line); color: var(--fg); padding: 3px 10px; font-size: 13px; font-weight: 600; }
+.tag.small { padding: 1px 7px; font-size: 12px; }
+.tag.warn { border-color: var(--gold); color: var(--gold); }
+button.tag.filter { cursor: pointer; }
+button.tag.filter:hover { border-color: var(--muted); }
+button.tag.filter.on { background: var(--green); border-color: #000; color: #fff; }
+.gallery { display: flex; gap: 10px; overflow-x: auto; padding-bottom: 6px; }
+.gallery img { height: 140px; width: auto; max-width: none; border: 2px solid var(--line); display: block; }
+.markdown { line-height: 1.6; overflow-wrap: anywhere; min-width: 0; }
+.markdown > :first-child { margin-top: 0; }
+.markdown h1, .markdown h2, .markdown h3 { margin: 1.2em 0 0.4em; }
+.markdown h1 { font-size: 24px; } .markdown h2 { font-size: 20px; } .markdown h3 { font-size: 17px; }
+.markdown p, .markdown ul, .markdown ol { margin: 0 0 0.8em; }
+.markdown img { max-width: 100%; height: auto; }
+.markdown code { font-family: var(--f-mono); font-size: 13px; background: #000; padding: 1px 5px; }
+.markdown pre { background: #000; border: 2px solid var(--line); padding: 12px; overflow-x: auto; }
+.markdown pre code { padding: 0; }
+.markdown table { width: auto; display: block; overflow-x: auto; }
+.markdown blockquote { border-left: 4px solid var(--line); margin: 0 0 0.8em; padding-left: 12px; color: var(--muted); }
+.markdown hr { border: 0; border-top: 2px solid var(--line); }
+.modal .tabs .tab { padding-left: 0; margin-right: 14px; }

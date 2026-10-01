@@ -234,10 +234,18 @@ export async function buildApp(deps: AppDeps = {}) {
     return { installed: s.projects, manual: await modrinth.manualJars(s) };
   });
 
-  app.get<IdParams & { Querystring: { q?: string; offset?: string } }>("/api/servers/:id/projects/search", async (req) => {
+  app.get<IdParams & { Querystring: { q?: string; offset?: string; category?: string } }>("/api/servers/:id/projects/search", async (req) => {
     const s = servers.get(req.params.id);
-    return modrinth.search(s, String(req.query.q ?? "").slice(0, 100), Number(req.query.offset ?? 0) || 0);
+    return modrinth.search(s, String(req.query.q ?? "").slice(0, 100), Number(req.query.offset ?? 0) || 0, req.query.category || undefined);
   });
+
+  app.get<IdParams>("/api/servers/:id/projects/categories", async (req) => ({
+    categories: await modrinth.categories(servers.get(req.params.id)),
+  }));
+
+  app.get<{ Params: { id: string; pid: string } }>("/api/servers/:id/projects/:pid/details", async (req) =>
+    modrinth.details(servers.get(req.params.id), req.params.pid),
+  );
 
   const saveInstalled = (id: string, installed: Awaited<ReturnType<typeof modrinth.install>>) =>
     store.updateServer(id, (x) => {

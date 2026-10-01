@@ -91,6 +91,7 @@ export function useAction() {
 // ---------- modal ----------
 
 export function Modal({ title, children, onClose, wide }: { title: string; children: ReactNode; onClose: () => void; wide?: boolean }) {
+  const { t } = useTranslation();
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
     window.addEventListener("keydown", onKey);
@@ -99,7 +100,12 @@ export function Modal({ title, children, onClose, wide }: { title: string; child
   return (
     <div className="modal-bg" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
       <div className={`modal${wide ? " wide" : ""}`} role="dialog" aria-modal="true" aria-label={title}>
-        <h2>{title}</h2>
+        <div className="row" style={{ flexWrap: "nowrap", alignItems: "flex-start" }}>
+          <h2 style={{ flex: 1, minWidth: 0, overflowWrap: "anywhere" }}>{title}</h2>
+          <button className="modal-close" onClick={onClose} aria-label={t("common.close")}>
+            ×
+          </button>
+        </div>
         {children}
       </div>
     </div>

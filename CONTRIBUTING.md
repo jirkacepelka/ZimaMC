@@ -21,6 +21,8 @@ Every language is one file in [`frontend/src/locales/`](frontend/src/locales). T
 
 If a key is missing, English is shown instead, so a partial translation still works.
 
+Optionally, translate Modrinth's category tags under `"tags"` (see `cs.json`). Tags without a translation are shown with their English name.
+
 ## Writing text for the UI
 
 ZimaMC is for people who just want a server. Write short, plain sentences and name things the way players know them ("memory", "friends can join"), not technical terms ("heap", "port forwarding"), except in Expert settings. Error messages should say what went wrong and what to do next.

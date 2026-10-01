@@ -17,7 +17,8 @@
     "saved": "Uloženo",
     "delete": "Smazat",
     "download": "Stáhnout",
-    "create": "Vytvořit"
+    "create": "Vytvořit",
+    "close": "Zavřít"
   },
   "app": {
     "unreachableTitle": "ZimaMC neodpovídá",
@@ -239,7 +240,10 @@
     "updated_other": "Aktualizováno: {{count}}.",
     "manual": "Přidáno ručně (ne z Modrinthu)",
     "removeTitle": "Odebrat {{name}}?",
-    "removeText": "Složka s jeho nastavením zůstane, takže při pozdější instalaci o nastavení nepřijdeš."
+    "removeText": "Složka s jeho nastavením zůstane, takže při pozdější instalaci o nastavení nepřijdeš.",
+    "categories": "Kategorie",
+    "allCategories": "Vše",
+    "clientToo": "Potřebují ho i hráči"
   },
   "players": {
     "onlineTitle": "Právě online: {{online}} / {{max}}",
@@ -489,5 +493,43 @@
     "playit_no_claim": "Nejdřív začni připojovat playit.gg.",
     "playit_not_connected": "Nejdřív připoj playit.gg.",
     "invalid_ip": "Tohle není platná IPv4 adresa."
+  },
+  "details": {
+    "about": "Popis",
+    "changes": "Co je nového",
+    "updated": "aktualizováno {{date}}",
+    "compatible": "Funguje s tvým serverem: verze {{version}}",
+    "noCompatible": "Pro verzi Minecraftu na tvém serveru neexistuje.",
+    "updateReady": "je dostupná aktualizace",
+    "channel": {
+      "beta": "beta",
+      "alpha": "alfa (experimentální)"
+    },
+    "clientRequired": "Tenhle mod si musí do hry nainstalovat i každý hráč, jinak se nepřipojí.",
+    "source": "Zdrojový kód",
+    "wiki": "Wiki",
+    "issues": "Nahlásit problém",
+    "license": "Licence: {{name}}"
+  },
+  "tags": {
+    "adventure": "Dobrodružství",
+    "cursed": "Prokleté",
+    "decoration": "Dekorace",
+    "economy": "Ekonomika",
+    "equipment": "Vybavení",
+    "food": "Jídlo",
+    "game-mechanics": "Herní mechaniky",
+    "library": "Knihovna",
+    "magic": "Magie",
+    "management": "Správa",
+    "minigame": "Minihry",
+    "mobs": "Moby",
+    "optimization": "Optimalizace",
+    "social": "Komunita",
+    "storage": "Úložiště",
+    "technology": "Technologie",
+    "transportation": "Doprava",
+    "utility": "Nástroje",
+    "worldgen": "Generování světa"
   }
 }

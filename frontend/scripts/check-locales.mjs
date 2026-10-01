@@ -18,7 +18,8 @@ for (const f of fs.readdirSync(dir).filter((f) => f.endsWith(".json") && f !== "
   const data = JSON.parse(fs.readFileSync(path.join(dir, f), "utf8"));
   const k = new Set(keys(data));
   const missing = [...en].filter((x) => !k.has(x));
-  const extra = [...k].filter((x) => !en.has(x));
+  // Modrinth tag names ("tags.economy") are optional per language; English shows them as-is.
+  const extra = [...k].filter((x) => !en.has(x) && !x.startsWith("tags."));
   if (!data._meta?.name) console.log(`${f}: add "_meta": { "name": "..." }`);
   console.log(`${f}: ${missing.length ? `${missing.length} missing` : "complete"}${extra.length ? `, ${extra.length} unknown` : ""}`);
   for (const m of missing) console.log(`  missing: ${m}`);
