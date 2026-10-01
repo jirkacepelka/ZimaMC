@@ -8,7 +8,7 @@ ZimaMC is a web app for [ZimaOS](https://www.zimaspace.com/) (and CasaOS) that l
 
 ## Features
 
-- **One-click servers**: Paper (plugins), Vanilla, Fabric and Forge (mods). Several servers at once.
+- **One-click servers**: Paper and Folia (plugins), Vanilla, Fabric and Forge (mods). Several servers at once.
 - **Performance limits**: every server gets its own memory and CPU limit, and you set a global limit for all servers together, so Minecraft never takes over the whole machine.
   - Memory is *reserved*: a server only starts if its memory still fits in the global limit.
   - CPU is *shared*: running servers are scaled down live so that together they stay within the global CPU limit.

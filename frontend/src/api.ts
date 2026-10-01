@@ -1,4 +1,4 @@
-export type ServerType = "PAPER" | "VANILLA" | "FABRIC" | "FORGE";
+export type ServerType = "PAPER" | "FOLIA" | "VANILLA" | "FABRIC" | "FORGE";
 export type ServerStatus = "offline" | "downloading" | "starting" | "online" | "stopping" | "crashed";
 
 export interface Properties {

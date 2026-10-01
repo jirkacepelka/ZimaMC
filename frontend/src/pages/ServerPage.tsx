@@ -43,7 +43,7 @@ export default function ServerPage() {
   const tabs: [string, string, boolean][] = [
     ["", t("tabs.overview"), true],
     ["console", t("tabs.console"), true],
-    ["plugins", server.type === "PAPER" ? t("tabs.plugins") : t("tabs.mods"), hasContent],
+    ["plugins", server.type === "PAPER" || server.type === "FOLIA" ? t("tabs.plugins") : t("tabs.mods"), hasContent],
     ["players", t("tabs.players"), true],
     ["domain", t("tabs.domain"), true],
     ["backups", t("tabs.backups"), true],

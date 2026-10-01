@@ -1,5 +1,7 @@
 {
-  "_meta": { "name": "Čeština" },
+  "_meta": {
+    "name": "Čeština"
+  },
   "common": {
     "cancel": "Zrušit",
     "copy": "Kopírovat",
@@ -82,10 +84,26 @@
     "openConsole": "Otevřít konzoli"
   },
   "types": {
-    "PAPER": { "name": "Paper", "text": "Rychlý a funguje s většinou pluginů." },
-    "VANILLA": { "name": "Vanilla", "text": "Oficiální server od Mojangu." },
-    "FABRIC": { "name": "Fabric", "text": "Lehký, skvělý pro výkon a novější mody." },
-    "FORGE": { "name": "Forge", "text": "Klasika pro velké modpacky." }
+    "PAPER": {
+      "name": "Paper",
+      "text": "Rychlý a funguje s většinou pluginů."
+    },
+    "FOLIA": {
+      "name": "Folia",
+      "text": "Paper pro velké servery: využije všechna jádra procesoru. Podporuje ji jen část pluginů."
+    },
+    "VANILLA": {
+      "name": "Vanilla",
+      "text": "Oficiální server od Mojangu."
+    },
+    "FABRIC": {
+      "name": "Fabric",
+      "text": "Lehký, skvělý pro výkon a novější mody."
+    },
+    "FORGE": {
+      "name": "Forge",
+      "text": "Klasika pro velké modpacky."
+    }
   },
   "dashboard": {
     "title": "Moje servery",
@@ -111,9 +129,18 @@
     "namePlaceholder": "Survival s kamarády",
     "gameTitle": "Co chceš hrát?",
     "kind": {
-      "plugins": { "name": "Pluginy", "text": "Paper: rychlý a pluginy přidáš jedním kliknutím. Nejlepší volba pro většinu lidí." },
-      "vanilla": { "name": "Vanilla", "text": "Oficiální server od Mojangu, přesně jako hra pro jednoho." },
-      "mods": { "name": "Mody", "text": "Fabric nebo Forge. Každý hráč musí mít nainstalované stejné mody." }
+      "plugins": {
+        "name": "Pluginy",
+        "text": "Paper nebo Folia: pluginy přidáš jedním kliknutím. Paper je nejlepší volba pro většinu lidí."
+      },
+      "vanilla": {
+        "name": "Vanilla",
+        "text": "Oficiální server od Mojangu, přesně jako hra pro jednoho."
+      },
+      "mods": {
+        "name": "Mody",
+        "text": "Fabric nebo Forge. Každý hráč musí mít nainstalované stejné mody."
+      }
     },
     "version": "Verze Minecraftu",
     "latest": "Nejnovější ({{version}})",
@@ -133,7 +160,8 @@
     "create": "Vytvořit a spustit",
     "creating": "Vytvářím…",
     "created": "Server je vytvořený a právě se spouští.",
-    "createdNotStarted": "Server je vytvořený, ale nespustil se: {{reason}}"
+    "createdNotStarted": "Server je vytvořený, ale nespustil se: {{reason}}",
+    "foliaHint": "Folia se vyplatí při velkém počtu hráčů a jader procesoru. Dej jí aspoň 2 jádra. Nabízíme jen pluginy označené pro Folii."
   },
   "tabs": {
     "label": "Části serveru",
@@ -170,10 +198,22 @@
     "hint": "Lomítko není potřeba. Šipkami ↑ a ↓ se vrátíš k předchozím příkazům."
   },
   "plugins": {
-    "installedTitle": { "plugins": "Nainstalované pluginy", "mods": "Nainstalované mody" },
-    "none": { "plugins": "Zatím žádné pluginy. Najdeš je níže.", "mods": "Zatím žádné mody. Najdeš je níže." },
-    "findTitle": { "plugins": "Najít pluginy", "mods": "Najít mody" },
-    "searchPlaceholder": { "plugins": "Hledat, např. EssentialsX nebo LuckPerms", "mods": "Hledat, např. Lithium nebo Create" },
+    "installedTitle": {
+      "plugins": "Nainstalované pluginy",
+      "mods": "Nainstalované mody"
+    },
+    "none": {
+      "plugins": "Zatím žádné pluginy. Najdeš je níže.",
+      "mods": "Zatím žádné mody. Najdeš je níže."
+    },
+    "findTitle": {
+      "plugins": "Najít pluginy",
+      "mods": "Najít mody"
+    },
+    "searchPlaceholder": {
+      "plugins": "Hledat, např. EssentialsX nebo LuckPerms",
+      "mods": "Hledat, např. Lithium nebo Create"
+    },
     "source": "Z Modrinthu, jen co funguje s Minecraftem {{version}}.",
     "noResults": "Pro tuhle verzi Minecraftu nic nenalezeno.",
     "by": "od {{author}}",
@@ -210,9 +250,18 @@
     "ban": "Zabanovat",
     "whitelistToggle": "Pouštět jen hráče z whitelistu",
     "whitelistHint": "Doporučeno, pokud je server dostupný z internetu.",
-    "whitelist": { "title": "Whitelist", "text": "Hráči, kteří se smí připojit." },
-    "ops": { "title": "Operátoři", "text": "Hráči, kteří můžou používat všechny příkazy, třeba /gamemode a /tp." },
-    "banned": { "title": "Zabanovaní hráči", "text": "Hráči, kteří se nemůžou připojit." },
+    "whitelist": {
+      "title": "Whitelist",
+      "text": "Hráči, kteří se smí připojit."
+    },
+    "ops": {
+      "title": "Operátoři",
+      "text": "Hráči, kteří můžou používat všechny příkazy, třeba /gamemode a /tp."
+    },
+    "banned": {
+      "title": "Zabanovaní hráči",
+      "text": "Hráči, kteří se nemůžou připojit."
+    },
     "empty": "Zatím nikdo.",
     "namePlaceholder": "Jméno v Minecraftu"
   },
@@ -330,9 +379,19 @@
     "name": "Název serveru",
     "motd": "Zpráva v seznamu serverů",
     "gamemode": "Herní režim",
-    "modes": { "survival": "Survival", "creative": "Creative", "adventure": "Dobrodružství", "spectator": "Divák" },
+    "modes": {
+      "survival": "Survival",
+      "creative": "Creative",
+      "adventure": "Dobrodružství",
+      "spectator": "Divák"
+    },
     "difficulty": "Obtížnost",
-    "difficulties": { "peaceful": "Mírumilovná", "easy": "Lehká", "normal": "Normální", "hard": "Těžká" },
+    "difficulties": {
+      "peaceful": "Mírumilovná",
+      "easy": "Lehká",
+      "normal": "Normální",
+      "hard": "Těžká"
+    },
     "maxPlayers": "Max. hráčů",
     "pvp": "Hráči si můžou ubližovat (PvP)",
     "autoStart": "Spustit automaticky po startu ZimaOS",

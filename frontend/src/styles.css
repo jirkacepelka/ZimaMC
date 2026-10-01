@@ -128,6 +128,7 @@ details.expert > div { padding: 0 14px 14px; display: grid; gap: 14px; }
 .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 20px; }
 .card { background: var(--panel); border: 2px solid var(--line); display: grid; grid-template-rows: auto 1fr; min-width: 0; }
 .card .art { height: 80px; border-bottom: 2px solid var(--line); background: linear-gradient(180deg, #78a7ff 0 55%, var(--grass) 55% 65%, var(--dirt) 65%); }
+.card .art.t-FOLIA { background: linear-gradient(180deg, #2b1a3d 0 55%, #3f8f6b 55% 65%, #2c5e48 65%); }
 .card .art.t-FABRIC { background: linear-gradient(180deg, #3b0d0d 0 55%, #6f1d1d 55% 65%, #461010 65%); }
 .card .art.t-FORGE { background: linear-gradient(180deg, #140c1e 0 55%, #dfe2a6 55% 65%, #bfc284 65%); }
 .card .art.t-VANILLA { background: linear-gradient(180deg, #9cc6ff 0 55%, #e8e8e8 55% 65%, #8a8a8a 65%); }

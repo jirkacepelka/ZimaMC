@@ -1,13 +1,15 @@
 import { MC_GID, MC_UID } from "./config.js";
 import type { ServerConfig, ServerType } from "./store.js";
 
-export const SERVER_TYPES: ServerType[] = ["PAPER", "VANILLA", "FABRIC", "FORGE"];
+export const SERVER_TYPES: ServerType[] = ["PAPER", "FOLIA", "VANILLA", "FABRIC", "FORGE"];
 
 /** Plugins go to plugins/, mods to mods/. Vanilla has neither. */
 export function contentKind(type: ServerType): { dir: "plugins" | "mods"; loader: string; projectType: "plugin" | "mod" } | null {
   switch (type) {
     case "PAPER":
       return { dir: "plugins", loader: "paper", projectType: "plugin" };
+    case "FOLIA":
+      return { dir: "plugins", loader: "folia", projectType: "plugin" };
     case "FABRIC":
       return { dir: "mods", loader: "fabric", projectType: "mod" };
     case "FORGE":
@@ -63,7 +65,7 @@ export function containerEnv(s: ServerConfig): Record<string, string> {
     VIEW_DISTANCE: String(p.viewDistance),
     STOP_SERVER_ANNOUNCE_DELAY: "5",
   };
-  if (s.type === "PAPER") env.USE_AIKAR_FLAGS = "true";
+  if (s.type === "PAPER" || s.type === "FOLIA") env.USE_AIKAR_FLAGS = "true";
   if (s.advanced.jvmFlags?.trim()) env.JVM_OPTS = s.advanced.jvmFlags.trim();
   for (const [k, v] of Object.entries(s.advanced.extraEnv ?? {})) {
     if (/^[A-Z_][A-Z0-9_]*$/.test(k)) env[k] = String(v);

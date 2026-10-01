@@ -16,6 +16,10 @@ export function loadersFor(s: Pick<ServerConfig, "type">): string[] {
   switch (s.type) {
     case "PAPER":
       return ["paper", "spigot", "bukkit"];
+    case "FOLIA":
+      // Folia runs regions on several threads; most Paper plugins break, so only
+      // offer plugins that say they support it.
+      return ["folia"];
     case "FABRIC":
       return ["fabric"];
     case "FORGE":

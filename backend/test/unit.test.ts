@@ -171,6 +171,7 @@ describe("modrinth", () => {
     expect(facets[1]).toEqual(["versions:1.21.8"]);
     expect(url.searchParams.get("index")).toBe("relevance");
     expect(loadersFor({ type: "VANILLA" })).toEqual([]);
+    expect(loadersFor({ type: "FOLIA" })).toEqual(["folia"]);
   });
 
   it("prefers stable releases", () => {

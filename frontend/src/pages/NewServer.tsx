@@ -13,7 +13,8 @@ type Size = keyof typeof SIZES;
 
 /** "Mods" is one simple choice; Fabric vs Forge is picked in a second row. */
 type Kind = "plugins" | "vanilla" | "mods";
-const kindToType = (k: Kind, loader: "FABRIC" | "FORGE"): ServerType => (k === "plugins" ? "PAPER" : k === "vanilla" ? "VANILLA" : loader);
+const kindToType = (k: Kind, loader: "FABRIC" | "FORGE", pluginServer: "PAPER" | "FOLIA"): ServerType =>
+  k === "plugins" ? pluginServer : k === "vanilla" ? "VANILLA" : loader;
 
 export default function NewServer() {
   const { t } = useTranslation();
@@ -26,6 +27,7 @@ export default function NewServer() {
   const [name, setName] = useState("");
   const [kind, setKind] = useState<Kind>("plugins");
   const [loader, setLoader] = useState<"FABRIC" | "FORGE">("FABRIC");
+  const [pluginServer, setPluginServer] = useState<"PAPER" | "FOLIA">("PAPER");
   const [versions, setVersions] = useState<string[] | null>(null);
   const [versionError, setVersionError] = useState("");
   const [version, setVersion] = useState("");
@@ -36,7 +38,7 @@ export default function NewServer() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
-  const type = kindToType(kind, loader);
+  const type = kindToType(kind, loader, pluginServer);
   const limits = system?.settings.limits;
   const maxMem = limits?.memoryMB ? limits.memoryMB - 512 : (system?.host.memoryMB ?? 16384);
   const maxCpu = limits?.cpus || system?.host.cpus || 4;
@@ -128,6 +130,16 @@ export default function NewServer() {
               </button>
             ))}
           </div>
+          {kind === "plugins" && (
+            <div className="choices">
+              {(["PAPER", "FOLIA"] as const).map((l) => (
+                <button key={l} type="button" className="choice" aria-pressed={pluginServer === l} onClick={() => setPluginServer(l)}>
+                  <b>{t(`types.${l}.name`)}</b>
+                  <small>{t(`types.${l}.text`)}</small>
+                </button>
+              ))}
+            </div>
+          )}
           {kind === "mods" && (
             <div className="choices">
               {(["FABRIC", "FORGE"] as const).map((l) => (
@@ -175,6 +187,7 @@ export default function NewServer() {
             ))}
           </div>
           {kind === "mods" && <p className="hint">{t("newServer.modsMemoryHint")}</p>}
+          {type === "FOLIA" && <p className="hint">{t("newServer.foliaHint")}</p>}
           <Expert>
             <label className="field">
               <span className="row">

@@ -48,8 +48,8 @@ x-casaos:
     en_us: Your own Minecraft server in a few clicks
     cs_cz: Vlastní Minecraft server na pár kliknutí
   description:
-    en_us: Create and run Minecraft servers (Paper, Vanilla, Fabric, Forge) with plugins and mods from Modrinth, memory and CPU limits, backups and an easy way to let friends join.
-    cs_cz: Vytvářej a spouštěj Minecraft servery (Paper, Vanilla, Fabric, Forge) s pluginy a mody z Modrinthu, limity paměti a procesoru, zálohami a snadným připojením pro kamarády.
+    en_us: Create and run Minecraft servers (Paper, Folia, Vanilla, Fabric, Forge) with plugins and mods from Modrinth, memory and CPU limits, backups and an easy way to let friends join.
+    cs_cz: Vytvářej a spouštěj Minecraft servery (Paper, Folia, Vanilla, Fabric, Forge) s pluginy a mody z Modrinthu, limity paměti a procesoru, zálohami a snadným připojením pro kamarády.
   title:
     en_us: ZimaMC
   index: /

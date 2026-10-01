@@ -34,8 +34,8 @@ export function parsePaperVersions(body: unknown): string[] {
   return [];
 }
 
-async function paperVersions() {
-  const sources = ["https://fill.papermc.io/v3/projects/paper", "https://api.papermc.io/v2/projects/paper"];
+async function paperMcVersions(project: "paper" | "folia") {
+  const sources = [`https://fill.papermc.io/v3/projects/${project}`, `https://api.papermc.io/v2/projects/${project}`];
   for (const url of sources) {
     try {
       const versions = parsePaperVersions(await fetchJson<unknown>(url));
@@ -44,13 +44,15 @@ async function paperVersions() {
       /* try the next source */
     }
   }
-  throw new Error("paper versions unavailable");
+  throw new Error(`${project} versions unavailable`);
 }
 
 async function loaderVersions(type: ServerType): Promise<string[]> {
   switch (type) {
     case "PAPER":
-      return cached("paper", paperVersions);
+      return cached("paper", () => paperMcVersions("paper"));
+    case "FOLIA":
+      return cached("folia", () => paperMcVersions("folia"));
     case "FABRIC":
       return cached("fabric", async () => {
         const f = await fetchJson<{ version: string; stable: boolean }[]>("https://meta.fabricmc.net/v2/versions/game");

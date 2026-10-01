@@ -26,7 +26,7 @@ export default function Plugins({ server, reload }: ServerTabProps) {
   const toast = useToast();
   const errorText = useErrorText();
   const [run, busy] = useAction();
-  const word = server.type === "PAPER" ? "plugins" : "mods";
+  const word = server.type === "PAPER" || server.type === "FOLIA" ? "plugins" : "mods";
 
   const [installed, setInstalled] = useState<InstalledProject[]>(server.projects);
   const [manual, setManual] = useState<string[]>([]);

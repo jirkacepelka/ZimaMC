@@ -86,6 +86,10 @@
       "name": "Paper",
       "text": "Fast and works with most plugins."
     },
+    "FOLIA": {
+      "name": "Folia",
+      "text": "Paper for big servers: uses all CPU cores. Only some plugins support it."
+    },
     "VANILLA": {
       "name": "Vanilla",
       "text": "The official Mojang server."
@@ -125,7 +129,7 @@
     "kind": {
       "plugins": {
         "name": "Plugins",
-        "text": "Paper: fast, and you can add plugins with one click. Best for most people."
+        "text": "Paper or Folia: add plugins with one click. Paper is best for most people."
       },
       "vanilla": {
         "name": "Vanilla",
@@ -152,7 +156,8 @@
     "create": "Create and start",
     "creating": "Creating…",
     "created": "Server created. It's starting now.",
-    "createdNotStarted": "Server created but not started: {{reason}}"
+    "createdNotStarted": "Server created but not started: {{reason}}",
+    "foliaHint": "Folia shines with many players and CPU cores. Give it at least 2 cores. Only plugins marked for Folia are offered."
   },
   "tabs": {
     "label": "Server sections",

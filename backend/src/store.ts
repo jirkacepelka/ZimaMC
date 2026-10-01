@@ -2,7 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { STORE_FILE } from "./config.js";
 
-export type ServerType = "PAPER" | "VANILLA" | "FABRIC" | "FORGE";
+export type ServerType = "PAPER" | "FOLIA" | "VANILLA" | "FABRIC" | "FORGE";
 
 export interface InstalledProject {
   projectId: string;
