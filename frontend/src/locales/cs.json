@@ -169,7 +169,12 @@
       "large": "Velký"
     },
     "overBudget": "Spolu s ostatními běžícími servery je to víc, než tvůj limit {{limit}}. To funguje, dokud nejedou všechny naplno najednou.",
-    "stepWorld": "Svět"
+    "stepWorld": "Svět",
+    "backupsLabel": "Automatické zálohy",
+    "backupsOn": "Každý den (doporučeno)",
+    "backupsOnText": "Uchová posledních 7 dní. Místo navíc zaberou jen změny.",
+    "backupsOff": "Bez záloh",
+    "backupsOffText": "Zapnout je můžeš později, nebo zálohovat ručně."
   },
   "tabs": {
     "label": "Části serveru",
@@ -355,7 +360,27 @@
     "keepN_few": "{{count}} nejnovější zálohy",
     "keepN_many": "{{count}} nejnovějších záloh",
     "keepN_other": "{{count}} nejnovějších záloh",
-    "scheduleHint": "Automatické zálohy běží jen se zapnutým serverem. Ruční zálohy se nikdy samy nemažou."
+    "scheduleHint": "Automatické zálohy běží jen se zapnutým serverem. Ruční zálohy se nikdy samy nemažou.",
+    "autoOn": "Zálohovat automaticky",
+    "offText": "Automatické zálohy jsou vypnuté. Ručně zálohovat můžeš i tak (nahoře).",
+    "diskUse": "Zálohy tohoto serveru zabírají {{size}}.",
+    "added": "+{{size}} nového",
+    "modeShort": {
+      "incremental": "Přírůstková",
+      "full": "Úplná (.tar.gz)"
+    },
+    "modeTitle": "Typ záloh",
+    "mode": {
+      "incremental": {
+        "name": "Přírůstkové (doporučeno)",
+        "text": "Každá záloha ukládá jen to, co se změnilo. Velký svět zabere místo jednou, ne za každou zálohu."
+      },
+      "full": {
+        "name": "Úplné",
+        "text": "Každá záloha je jeden kompletní soubor .tar.gz. Nejjednodušší na přenos jinam, ale každá zabere celou velikost."
+      }
+    },
+    "modeHint": "Platí pro nové zálohy. Stávající zůstanou, jak jsou, a dají se dál obnovit i stáhnout (jako .tar.gz)."
   },
   "files": {
     "location": "Umístění",
@@ -557,7 +582,9 @@
     "target_exists": "V {{path}} už složka serveru je.",
     "move_failed": "Kopírování souborů se nepovedlo.",
     "invalid_radius": "Zvol radius od 100 do 30 000 bloků.",
-    "chunky_install_failed": "Modrinth není dostupný."
+    "chunky_install_failed": "Modrinth není dostupný.",
+    "folder_not_found": "Složka {{path}} neexistuje. Vyber ji přes Procházet… nebo zkontroluj cestu.",
+    "not_mounted": "ZimaMC se k {{path}} nedostane: má přístup jen k /DATA a diskům v /media. V ZimaOS znovu naimportuj ZimaMC s nejnovějším docker-compose.yml, aby se disky připojily."
   },
   "details": {
     "about": "Popis",
@@ -628,7 +655,7 @@
     "customTitle": "Jiná složka",
     "customPlaceholder": "/DATA/Games nebo D:\\Minecraft",
     "check": "Použít tuto složku",
-    "customHint": "ZimaMC si v ní vytvoří složku ZimaMC. V ZimaOS musí být pod /DATA nebo /media.",
+    "customHint": "Fungují i cesty zkopírované ze Souborů v ZimaOS. ZimaMC si uvnitř vytvoří složku ZimaMC; vybranou složku samo nikdy nevytváří.",
     "title": "Úložiště",
     "move": "Přesunout na jiný disk",
     "moveHint": "Přesun zkopíruje svět, pluginy a nastavení a pak smaže starou kopii.",
@@ -641,7 +668,15 @@
     "moveFailed": "Přesun se nepovedl, nic se nezměnilo: {{reason}}",
     "backupsTitle": "Kde jsou zálohy",
     "backupsText": "Zálohy na jiném disku než světy je ochrání, když disk selže. Stávající zálohy se přesunou taky.",
-    "moveBackups": "Přesunout zálohy sem"
+    "moveBackups": "Přesunout zálohy sem",
+    "browse": "Procházet…",
+    "or": "nebo cestu napiš či vlož níže",
+    "browseTitle": "Vyber složku",
+    "up": "Nahoru",
+    "disks": "Disky",
+    "noFolders": "Žádné složky.",
+    "willUse": "Servery půjdou do {{path}}",
+    "useFolder": "Použít tuto složku"
   },
   "chunky": {
     "title": "Předgenerovat svět?",

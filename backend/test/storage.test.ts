@@ -6,7 +6,7 @@ import { BYTES_PER_CHUNK, chunksForRadius, chunksPerSecond, cpuBenchmark, diskBe
 import { DATA_DIR, toHostPath } from "../src/config.js";
 import { demux } from "../src/docker.js";
 import { parseChunkyProgress } from "../src/minecraft.js";
-import { listLocations, prepareBase, startMove, type CopyJob } from "../src/storage.js";
+import { browse, copyTree, listLocations, prepareBase, resolveUserPath, startMove, uniqueSize, type CopyJob } from "../src/storage.js";
 import { HttpError } from "../src/store.js";
 
 const tmp = () => fs.mkdtempSync(path.join(os.tmpdir(), "zimamc-disk-"));
@@ -39,16 +39,65 @@ describe("storage", () => {
     expect((await listLocations([custom])).some((l) => l.path === custom)).toBe(true);
   });
 
-  it("checks folders the user typed", async () => {
+  it("uses folders the user picked, but never creates them", async () => {
     const a = tmp();
     expect(await prepareBase(a)).toBe(path.join(a, "ZimaMC"));
     expect(fs.existsSync(path.join(a, "ZimaMC"))).toBe(true);
     expect(await prepareBase(path.join(a, "ZimaMC"))).toBe(path.join(a, "ZimaMC"));
+    // A ZimaMC base offered by the app may not exist yet, its disk must.
+    const b = tmp();
+    expect(await prepareBase(path.join(b, "ZimaMC"))).toBe(path.join(b, "ZimaMC"));
     expect(await prepareBase(DATA_DIR)).toBe(DATA_DIR);
     expect(await code(prepareBase("relative/path"))).toBe("invalid_path");
-    const file = path.join(a, "file.txt");
-    fs.writeFileSync(file, "x");
-    expect(await code(prepareBase(path.join(file, "inside")))).toBe("storage_not_writable");
+    const missing = path.join(a, "does not exist");
+    expect(await code(prepareBase(missing))).toBe("folder_not_found");
+    expect(fs.existsSync(missing)).toBe(false);
+  });
+
+  it("understands paths copied from the ZimaOS Files app", () => {
+    // ZimaOS shows /media/HDD-Storage/Games as /HDD-Storage/Games.
+    const disk = fs.mkdtempSync("/media/zimamc-test-");
+    try {
+      fs.mkdirSync(path.join(disk, "Jirka private"));
+      expect(resolveUserPath(`/${path.basename(disk)}/Jirka private`)).toBe(path.join(disk, "Jirka private"));
+    } finally {
+      fs.rmSync(disk, { recursive: true, force: true });
+    }
+  });
+
+  it("in the container, only accepts folders on mounted disks", async () => {
+    const mounted = tmp();
+    const other = tmp();
+    process.env.ZIMAMC_IN_CONTAINER = "1";
+    process.env.STORAGE_ROOTS = mounted;
+    try {
+      expect(resolveUserPath(mounted)).toBe(mounted);
+      expect(await code(prepareBase(other))).toBe("not_mounted");
+      expect(fs.existsSync(path.join(other, "ZimaMC"))).toBe(false);
+      // The folder picker can't leave the mounted disks either.
+      const top = await browse();
+      expect(top.dirs.map((d) => d.path)).toContain(mounted);
+      fs.mkdirSync(path.join(mounted, "Games"));
+      fs.mkdirSync(path.join(mounted, ".hidden"));
+      expect(await browse(mounted)).toMatchObject({ path: mounted, parent: "", dirs: [{ name: "Games", path: path.join(mounted, "Games") }] });
+      expect(await code(browse(path.join(mounted, "..")))).toBe("not_mounted");
+    } finally {
+      delete process.env.ZIMAMC_IN_CONTAINER;
+    }
+  });
+
+  it("keeps hardlinks when copying, so incremental backups stay small", async () => {
+    const from = tmp();
+    fs.mkdirSync(path.join(from, "a"));
+    fs.mkdirSync(path.join(from, "b"));
+    fs.writeFileSync(path.join(from, "a", "r.mca"), Buffer.alloc(1000));
+    fs.linkSync(path.join(from, "a", "r.mca"), path.join(from, "b", "r.mca"));
+    expect(await uniqueSize(from)).toBe(1000);
+    const to = path.join(tmp(), "copy");
+    let copied = 0;
+    await copyTree(from, to, (n) => (copied += n));
+    expect(copied).toBe(1000);
+    expect(fs.statSync(path.join(to, "a", "r.mca")).ino).toBe(fs.statSync(path.join(to, "b", "r.mca")).ino);
   });
 
   it("moves a folder: copies, switches over, deletes the original", async () => {

@@ -157,7 +157,7 @@ describe("API", () => {
     const id = (await req("GET", "/api/servers")).json().servers[0].id;
     await req("PUT", `/api/servers/${id}/files/content`, { path: "hello.txt", content: "before" });
     const { file } = (await req("POST", `/api/servers/${id}/backups`)).json();
-    expect(file).toMatch(/\.tar\.gz$/);
+    expect(file).not.toMatch(/\.tar\.gz$/);
     await req("PUT", `/api/servers/${id}/files/content`, { path: "hello.txt", content: "after" });
 
     expect((await req("POST", `/api/servers/${id}/backups/restore`, { file })).json().error).toBe("stop_server_first");
@@ -166,6 +166,64 @@ describe("API", () => {
     expect((await req("POST", `/api/servers/${id}/backups/restore`, { file })).statusCode).toBe(200);
     expect((await req("GET", `/api/servers/${id}/files/content?path=hello.txt`)).json().content).toBe("before");
     expect((await req("POST", `/api/servers/${id}/backups/restore`, { file: "../x.tar.gz" })).json().error).toBe("invalid_path");
+    // Playing on the restored world must not change the backup.
+    await req("PUT", `/api/servers/${id}/files/content`, { path: "hello.txt", content: "changed again" });
+    expect(fs.readFileSync(path.join(DATA_DIR, "backups", id, file, "hello.txt"), "utf8")).toBe("before");
+  });
+
+  it("stores unchanged files only once in incremental backups", async () => {
+    const id = (await req("GET", "/api/servers")).json().servers[0].id;
+    const region = path.join(DATA_DIR, "servers", id, "world", "region");
+    fs.mkdirSync(region, { recursive: true });
+    fs.writeFileSync(path.join(region, "r.0.0.mca"), Buffer.alloc(200_000, 3));
+    // Downloaded server files are never backed up.
+    fs.mkdirSync(path.join(DATA_DIR, "servers", id, "libraries"), { recursive: true });
+    fs.writeFileSync(path.join(DATA_DIR, "servers", id, "libraries", "big.jar"), "x");
+
+    const a = (await req("POST", `/api/servers/${id}/backups`)).json().file;
+    const b = (await req("POST", `/api/servers/${id}/backups`)).json().file;
+    const list = (await req("GET", `/api/servers/${id}/backups`)).json();
+    const ba = list.backups.find((x: { file: string }) => x.file === a);
+    const bb = list.backups.find((x: { file: string }) => x.file === b);
+    expect(bb).toMatchObject({ kind: "incremental", added: 0 });
+    expect(bb.size).toBe(ba.size);
+    const ino = (f: string) => fs.statSync(path.join(DATA_DIR, "backups", id, f, "world", "region", "r.0.0.mca")).ino;
+    expect(ino(a)).toBe(ino(b));
+    expect(fs.existsSync(path.join(DATA_DIR, "backups", id, b, "libraries"))).toBe(false);
+    // Real space: the region file counts once.
+    expect(list.diskBytes).toBeLessThan(ba.size * 2);
+
+    // A changed file is copied, the rest stays shared.
+    await new Promise((r) => setTimeout(r, 1100));
+    fs.writeFileSync(path.join(region, "r.0.0.mca"), Buffer.alloc(200_001, 4));
+    const c = (await req("POST", `/api/servers/${id}/backups`)).json().file;
+    const bc = (await req("GET", `/api/servers/${id}/backups`)).json().backups.find((x: { file: string }) => x.file === c);
+    expect(bc.added).toBeGreaterThanOrEqual(200_001);
+    expect(ino(c)).not.toBe(ino(b));
+
+    // Deleting an older backup keeps the newer ones whole.
+    await req("DELETE", `/api/servers/${id}/backups?file=${a}`);
+    expect(fs.statSync(path.join(DATA_DIR, "backups", id, b, "world", "region", "r.0.0.mca")).size).toBe(200_000);
+
+    // Download as .tar.gz.
+    const dl = await app.inject({ method: "GET", url: `/api/servers/${id}/backups/download?file=${b}`, headers: { cookie } });
+    expect(dl.statusCode).toBe(200);
+    expect(dl.headers["content-disposition"]).toContain(`${b}.tar.gz`);
+    expect(dl.rawPayload.subarray(0, 2)).toEqual(Buffer.from([0x1f, 0x8b]));
+  });
+
+  it("lets the user pick full backups or none", async () => {
+    const id = (await req("GET", "/api/servers")).json().servers[0].id;
+    await req("PATCH", `/api/servers/${id}`, { backup: { mode: "full" } });
+    expect((await req("POST", `/api/servers/${id}/backups`)).json().file).toMatch(/\.tar\.gz$/);
+    const kinds = (await req("GET", `/api/servers/${id}/backups`)).json().backups.map((b: { kind: string }) => b.kind);
+    expect(kinds).toContain("full");
+    expect(kinds).toContain("incremental");
+    await req("PATCH", `/api/servers/${id}`, { backup: { mode: "incremental" } });
+
+    const r = (await req("POST", "/api/servers", { name: "NoBackups", type: "VANILLA", version: "1.21.8", backup: { everyHours: 0 }, start: false })).json();
+    expect(r.server.backup).toMatchObject({ everyHours: 0, mode: "incremental" });
+    await req("DELETE", `/api/servers/${r.server.id}`);
   });
 
   it("manages players on a stopped server through its files", async () => {

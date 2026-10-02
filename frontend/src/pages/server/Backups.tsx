@@ -6,21 +6,31 @@ import type { ServerTabProps } from "../ServerPage";
 
 interface Backup {
   file: string;
+  kind: "full" | "incremental";
   size: number;
+  /** Incremental backups: data new in this one. */
+  added?: number;
   createdAt: string;
   auto: boolean;
 }
 
-const FREQUENCIES = [0, 6, 12, 24, 48, 168];
+const FREQUENCIES = [6, 12, 24, 48, 168];
 
 export default function Backups({ server, reload }: ServerTabProps) {
   const { t } = useTranslation();
   const [run, busy] = useAction();
   const [list, setList] = useState<Backup[] | null>(null);
+  const [diskBytes, setDiskBytes] = useState(0);
   const [restoring, setRestoring] = useState<Backup | null>(null);
   const [deleting, setDeleting] = useState<Backup | null>(null);
 
-  const load = async () => setList((await get<{ backups: Backup[] }>(`/api/servers/${server.id}/backups`)).backups);
+  const load = async () => {
+    const r = await get<{ backups: Backup[]; diskBytes: number }>(`/api/servers/${server.id}/backups`);
+    setList(r.backups);
+    setDiskBytes(r.diskBytes);
+  };
+  const mode = server.backup.mode ?? "incremental";
+  const on = server.backup.everyHours > 0;
   useEffect(() => {
     void load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -41,7 +51,10 @@ export default function Backups({ server, reload }: ServerTabProps) {
             {busy ? t("backups.working") : t("backups.now")}
           </button>
         </div>
-        <p className="hint">{t("backups.explain")}</p>
+        <p className="hint">
+          {t("backups.explain")}
+          {list && list.length > 0 && <> {t("backups.diskUse", { size: formatBytes(diskBytes) })}</>}
+        </p>
         {list && list.length === 0 && <p className="muted">{t("backups.none")}</p>}
         {list && list.length > 0 && (
           <div className="table-wrap">
@@ -58,8 +71,14 @@ export default function Backups({ server, reload }: ServerTabProps) {
                 {list.map((b) => (
                   <tr key={b.file}>
                     <td className="num">{new Date(b.createdAt).toLocaleString()}</td>
-                    <td className="num">{formatBytes(b.size)}</td>
-                    <td>{b.auto ? t("backups.auto") : t("backups.manual")}</td>
+                    <td className="num">
+                      {formatBytes(b.size)}
+                      {b.kind === "incremental" && b.added !== undefined && <div className="hint">{t("backups.added", { size: formatBytes(b.added) })}</div>}
+                    </td>
+                    <td>
+                      {b.auto ? t("backups.auto") : t("backups.manual")}
+                      <div className="hint">{t(`backups.modeShort.${b.kind}`)}</div>
+                    </td>
                     <td>
                       <div className="row" style={{ flexWrap: "nowrap", gap: 8 }}>
                         <button className="btn small stone" onClick={() => setRestoring(b)}>
@@ -83,29 +102,50 @@ export default function Backups({ server, reload }: ServerTabProps) {
 
       <div className="panel stack">
         <h2>{t("backups.scheduleTitle")}</h2>
-        <div className="grid2">
-          <label className="field">
-            {t("backups.every")}
-            <select id="backup-every" value={server.backup.everyHours} onChange={(e) => saveSchedule({ everyHours: Number(e.target.value) })}>
-              {FREQUENCIES.map((h) => (
-                <option key={h} value={h}>
-                  {h === 0 ? t("backups.off") : t("backups.hours", { count: h })}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="field">
-            {t("backups.keep")}
-            <select id="backup-keep" value={server.backup.keep} onChange={(e) => saveSchedule({ keep: Number(e.target.value) })}>
-              {[3, 5, 7, 14, 30].map((n) => (
-                <option key={n} value={n}>
-                  {t("backups.keepN", { count: n })}
-                </option>
-              ))}
-            </select>
-          </label>
-        </div>
+        <label className="check">
+          <input id="backup-on" type="checkbox" checked={on} onChange={(e) => saveSchedule({ everyHours: e.target.checked ? 24 : 0 })} />
+          {t("backups.autoOn")}
+        </label>
+        {on ? (
+          <div className="grid2">
+            <label className="field">
+              {t("backups.every")}
+              <select id="backup-every" value={server.backup.everyHours} onChange={(e) => saveSchedule({ everyHours: Number(e.target.value) })}>
+                {[...new Set([...FREQUENCIES, server.backup.everyHours])].map((h) => (
+                  <option key={h} value={h}>
+                    {t("backups.hours", { count: h })}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="field">
+              {t("backups.keep")}
+              <select id="backup-keep" value={server.backup.keep} onChange={(e) => saveSchedule({ keep: Number(e.target.value) })}>
+                {[3, 5, 7, 14, 30].map((n) => (
+                  <option key={n} value={n}>
+                    {t("backups.keepN", { count: n })}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
+        ) : (
+          <p className="muted">{t("backups.offText")}</p>
+        )}
         <p className="hint">{t("backups.scheduleHint")}</p>
+      </div>
+
+      <div className="panel stack">
+        <h2>{t("backups.modeTitle")}</h2>
+        <div className="choices">
+          {(["incremental", "full"] as const).map((m) => (
+            <button key={m} type="button" className="choice" aria-pressed={mode === m} onClick={() => mode !== m && saveSchedule({ mode: m })}>
+              <b>{t(`backups.mode.${m}.name`)}</b>
+              <small>{t(`backups.mode.${m}.text`)}</small>
+            </button>
+          ))}
+        </div>
+        <p className="hint">{t("backups.modeHint")}</p>
       </div>
 
       {restoring && (

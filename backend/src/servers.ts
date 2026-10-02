@@ -41,6 +41,8 @@ export interface CreateServerInput {
   storage?: string;
   /** Install Chunky and pre-generate this many blocks around spawn on the first start. */
   pregen?: { radius: number };
+  /** Automatic backups; everyHours 0 turns them off. Default: daily. */
+  backup?: { everyHours?: number };
 }
 
 /** Modrinth project of Chunky, the world pre-generator (plugin and mod). */
@@ -154,7 +156,7 @@ export class Servers {
       advanced: {},
       autoStart: true,
       projects: [],
-      backup: { everyHours: 24, keep: 7 },
+      backup: { everyHours: Math.max(0, Math.min(168, Number(input.backup?.everyHours ?? 24) || 0)), keep: 7, mode: "incremental" },
       storage: storage && !sameBase(storage, DATA_DIR) ? storage : undefined,
       createdAt: new Date().toISOString(),
     };
@@ -214,6 +216,7 @@ export class Servers {
         ...s.backup,
         everyHours: Math.max(0, Math.min(168, Number(patch.backup.everyHours ?? s.backup.everyHours))),
         keep: Math.max(1, Math.min(100, Number(patch.backup.keep ?? s.backup.keep))),
+        mode: patch.backup.mode === "full" ? "full" : patch.backup.mode === "incremental" ? "incremental" : s.backup.mode,
       };
     }
     assertServerLimits(this.store.settings, next.memoryMB, next.cpus);

@@ -55,7 +55,7 @@ export interface Server {
   advanced: { javaImageTag?: string; jvmFlags?: string; extraEnv?: Record<string, string> };
   autoStart: boolean;
   projects: InstalledProject[];
-  backup: { everyHours: number; keep: number; lastAt?: string };
+  backup: { everyHours: number; keep: number; lastAt?: string; mode?: "incremental" | "full" };
   domain?: { zoneId: string; zoneName: string; name: string };
   tunnel?: { tunnelId: string; address?: string };
   status: ServerStatus;

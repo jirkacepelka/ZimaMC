@@ -51,7 +51,8 @@ export interface ServerConfig {
   };
   autoStart: boolean;
   projects: InstalledProject[];
-  backup: { everyHours: number; keep: number; lastAt?: string };
+  /** Automatic backups; everyHours 0 = off. mode: unset = incremental. */
+  backup: { everyHours: number; keep: number; lastAt?: string; mode?: "incremental" | "full" };
   domain?: { zoneId: string; zoneName: string; name: string; aRecordId?: string; srvRecordId?: string };
   tunnel?: { tunnelId: string; address?: string };
   /** Ports besides the game port: web maps, voice chat, … */

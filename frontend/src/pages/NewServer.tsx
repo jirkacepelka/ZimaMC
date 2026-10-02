@@ -40,6 +40,7 @@ export default function NewServer() {
   const [storageInfo] = useStorage();
   const [storage, setStorage] = useState("");
   const [chunky, setChunky] = useState<boolean | null>(null);
+  const [backups, setBackups] = useState(true);
   const [radius, setRadius] = useState<number | null>(null);
   const [port, setPort] = useState("");
   const [busy, setBusy] = useState(false);
@@ -97,6 +98,7 @@ export default function NewServer() {
         cpus,
         port: port ? Number(port) : undefined,
         storage: storage || undefined,
+        backup: { everyHours: backups ? 24 : 0 },
         pregen: worldStep && chunky && radius ? { radius } : undefined,
       });
       if (r.pregenError) toast(t("chunky.installFailed", { reason: t(`errors.${r.pregenError.error}`, { ...r.pregenError.params, defaultValue: r.pregenError.error }) }), true);
@@ -236,6 +238,19 @@ export default function NewServer() {
             </div>
           )}
           {type === "FOLIA" && <p className="hint">{t("newServer.foliaHint")}</p>}
+          <div className="field">
+            {t("newServer.backupsLabel")}
+            <div className="choices">
+              <button type="button" className="choice" aria-pressed={backups} onClick={() => setBackups(true)}>
+                <b>{t("newServer.backupsOn")}</b>
+                <small>{t("newServer.backupsOnText")}</small>
+              </button>
+              <button type="button" className="choice" aria-pressed={!backups} onClick={() => setBackups(false)}>
+                <b>{t("newServer.backupsOff")}</b>
+                <small>{t("newServer.backupsOffText")}</small>
+              </button>
+            </div>
+          </div>
           <Expert>
             <label className="field">
               <span className="row">

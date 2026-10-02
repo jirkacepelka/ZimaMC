@@ -167,7 +167,12 @@
       "large": "Large"
     },
     "overBudget": "Together with your other running servers this is more than your limit of {{limit}}. That works as long as they aren't all busy at once.",
-    "stepWorld": "World"
+    "stepWorld": "World",
+    "backupsLabel": "Automatic backups",
+    "backupsOn": "Every day (recommended)",
+    "backupsOnText": "Keeps the last 7 days. Only changes take extra space.",
+    "backupsOff": "No backups",
+    "backupsOffText": "You can turn them on later, or back up by hand."
   },
   "tabs": {
     "label": "Server sections",
@@ -343,7 +348,27 @@
     "keep": "Keep",
     "keepN_one": "The newest backup",
     "keepN_other": "The newest {{count}} backups",
-    "scheduleHint": "Automatic backups only run while the server is running. Manual backups are never deleted automatically."
+    "scheduleHint": "Automatic backups only run while the server is running. Manual backups are never deleted automatically.",
+    "autoOn": "Back up automatically",
+    "offText": "Automatic backups are off. You can still back up by hand above.",
+    "diskUse": "Backups of this server take {{size}} on disk.",
+    "added": "+{{size}} new",
+    "modeShort": {
+      "incremental": "Incremental",
+      "full": "Full (.tar.gz)"
+    },
+    "modeTitle": "Backup type",
+    "mode": {
+      "incremental": {
+        "name": "Incremental (recommended)",
+        "text": "Each backup only stores what changed. A big world takes its space once, not once per backup."
+      },
+      "full": {
+        "name": "Full",
+        "text": "Each backup is one complete .tar.gz file. Simplest to copy elsewhere, but every backup takes the full size."
+      }
+    },
+    "modeHint": "Applies to new backups. Existing backups stay as they are and can still be restored and downloaded (as .tar.gz)."
   },
   "files": {
     "location": "Location",
@@ -543,7 +568,9 @@
     "target_exists": "There is already a server folder at {{path}}.",
     "move_failed": "Copying the files failed.",
     "invalid_radius": "Choose a radius between 100 and 30,000 blocks.",
-    "chunky_install_failed": "Modrinth could not be reached."
+    "chunky_install_failed": "Modrinth could not be reached.",
+    "folder_not_found": "The folder {{path}} doesn't exist. Pick it with Browse… or check the path.",
+    "not_mounted": "ZimaMC can't reach {{path}}: only /DATA and the drives in /media are available to it. On ZimaOS, re-import ZimaMC with the latest docker-compose.yml so your drives are mounted."
   },
   "details": {
     "about": "Description",
@@ -593,7 +620,7 @@
     "customTitle": "Another folder",
     "customPlaceholder": "/DATA/Games or D:\\Minecraft",
     "check": "Use this folder",
-    "customHint": "ZimaMC creates a ZimaMC folder inside. On ZimaOS the folder must be under /DATA or /media.",
+    "customHint": "Paths copied from the ZimaOS Files app work too. ZimaMC creates a ZimaMC folder inside; it never creates the folder you chose.",
     "title": "Storage",
     "move": "Move to another disk",
     "moveHint": "Moving copies the world, plugins and settings, then deletes the old copy.",
@@ -606,7 +633,15 @@
     "moveFailed": "Moving failed, nothing was changed: {{reason}}",
     "backupsTitle": "Where backups are kept",
     "backupsText": "Keeping backups on a different disk than your worlds protects them if a disk fails. Existing backups are moved too.",
-    "moveBackups": "Move backups here"
+    "moveBackups": "Move backups here",
+    "browse": "Browse…",
+    "or": "or type or paste a path below",
+    "browseTitle": "Choose a folder",
+    "up": "Up",
+    "disks": "Disks",
+    "noFolders": "No folders here.",
+    "willUse": "Servers go to {{path}}",
+    "useFolder": "Use this folder"
   },
   "chunky": {
     "title": "Pre-generate the world?",

@@ -20,7 +20,7 @@ ZimaMC is a web app for [ZimaOS](https://www.zimaspace.com/) (and CasaOS), and a
 - **Console** with live log, commands and a cheat sheet of everyday commands, plus the ones your plugins and mods add.
 - **Plugin and mod settings**: one click opens their config files in the built-in editor.
 - **Players**: whitelist, operators, bans and kicks.
-- **Backups**: manual or scheduled, with retention, restore and download.
+- **Backups**: on or off, scheduled or by hand, with retention, restore and download. Incremental by default: unchanged files are shared between backups (hardlinks), so a big pre-generated world takes its space once. Full `.tar.gz` backups are one click away.
 - **File manager**: browse, edit, upload and download.
 - **Multilingual** (English and Czech so far). Adding a language means adding one JSON file, see [CONTRIBUTING.md](CONTRIBUTING.md).
 

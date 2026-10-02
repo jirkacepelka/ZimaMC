@@ -16,10 +16,12 @@ RUN npm run build && npm prune --omit=dev \
 # ---- run ----
 FROM node:22-alpine
 WORKDIR /app
+# ZIMAMC_IN_CONTAINER: only folders mounted into this container are real disks (see storage.ts).
 ENV NODE_ENV=production \
     PORT=8765 \
     DATA_DIR=/DATA/AppData/zimamc \
-    STATIC_DIR=/app/frontend/dist
+    STATIC_DIR=/app/frontend/dist \
+    ZIMAMC_IN_CONTAINER=1
 COPY --from=build /app/node_modules ./node_modules
 COPY --from=build /app/backend/dist ./backend/dist
 COPY --from=build /app/backend/package.json ./backend/

@@ -5,10 +5,11 @@ import { fileURLToPath } from "node:url";
 import cookie from "@fastify/cookie";
 import multipart from "@fastify/multipart";
 import fastifyStatic from "@fastify/static";
+import * as tar from "tar";
 import websocket from "@fastify/websocket";
 import Fastify, { type FastifyRequest } from "fastify";
 import { Auth } from "./auth.js";
-import { Backups } from "./backups.js";
+import { Backups, backupEntries } from "./backups.js";
 import { VERSION } from "./config.js";
 import { DockerManager } from "./docker.js";
 import { Benchmarks, BYTES_PER_CHUNK, chunksPerSecond } from "./benchmark.js";
@@ -23,7 +24,7 @@ import { isMapped, openPort } from "./network/upnp.js";
 import { Players, type PlayerList } from "./players.js";
 import { defaultLimits, hostInfo } from "./resources.js";
 import { Servers } from "./servers.js";
-import { freeBytes, listLocations, prepareBase } from "./storage.js";
+import { browse as browseFolders, freeBytes, listLocations, prepareBase, spaceOf } from "./storage.js";
 import { HttpError, Store, type ExtraPort, type ServerType } from "./store.js";
 import { listVersions } from "./versions.js";
 
@@ -228,8 +229,10 @@ export async function buildApp(deps: AppDeps = {}) {
 
   app.post<{ Body: { path: string } }>("/api/storage/check", async (req) => {
     const base = await prepareBase(String(req.body?.path ?? ""));
-    return { path: base, freeBytes: await freeBytes(base) };
+    return { path: base, ...(await spaceOf(base)) };
   });
+
+  app.get<{ Querystring: { path?: string } }>("/api/storage/browse", async (req) => browseFolders(req.query.path || undefined));
 
   app.post<IdParams & { Body: { storage: string } }>("/api/servers/:id/move", async (req) => servers.moveServer(req.params.id, String(req.body?.storage ?? "")));
 
@@ -444,7 +447,7 @@ export async function buildApp(deps: AppDeps = {}) {
 
   app.get<IdParams>("/api/servers/:id/backups", async (req) => {
     const s = servers.get(req.params.id);
-    return { backups: await backups.list(s.id), running: backups.isRunning(s.id), schedule: s.backup };
+    return { backups: await backups.list(s.id), running: backups.isRunning(s.id), schedule: s.backup, diskBytes: await backups.usage(s.id) };
   });
 
   app.post<IdParams>("/api/servers/:id/backups", async (req) => ({ file: await backups.create(servers.get(req.params.id)) }));
@@ -463,8 +466,12 @@ export async function buildApp(deps: AppDeps = {}) {
   app.get<IdParams & { Querystring: { file: string } }>("/api/servers/:id/backups/download", async (req, reply) => {
     servers.get(req.params.id);
     const p = backups.pathOf(req.params.id, req.query.file);
-    reply.header("Content-Disposition", `attachment; filename="${path.basename(p)}"`);
-    return reply.type("application/gzip").send(fs.createReadStream(p));
+    if (!fs.existsSync(p)) throw new HttpError(404, "backup_not_found");
+    const isFolder = fs.statSync(p).isDirectory();
+    reply.header("Content-Disposition", `attachment; filename="${path.basename(p)}${isFolder ? ".tar.gz" : ""}"`);
+    // Incremental backups are folders: pack them on the fly.
+    const body = isFolder ? (tar.c({ gzip: true, cwd: p, portable: true }, backupEntries(p)) as unknown as NodeJS.ReadableStream) : fs.createReadStream(p);
+    return reply.type("application/gzip").send(body);
   });
 
   // ---- Network ----

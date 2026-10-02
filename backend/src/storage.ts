@@ -2,7 +2,7 @@ import fs from "node:fs";
 import fsp from "node:fs/promises";
 import path from "node:path";
 import { DATA_DIR, IS_WINDOWS } from "./config.js";
-import { chownForServer, dirSize } from "./files.js";
+import { chownForServer } from "./files.js";
 import { HttpError } from "./store.js";
 
 /** A place ZimaMC can keep servers or backups: a storage base folder on some disk. */
@@ -97,25 +97,84 @@ export async function listLocations(inUse: string[] = []): Promise<Location[]> {
   }
   for (const base of inUse) {
     if (out.some((l) => sameBase(l.path, base))) continue;
-    out.push({ path: base, label: base, ...(await space(existingParent(base))), default: false });
+    // A folder the user picked: name it after that folder, e.g. "Games" for /media/HDD/Games/ZimaMC.
+    const label = path.basename(path.basename(base) === BASE_NAME ? path.dirname(base) : base) || base;
+    out.push({ path: base, label, ...(await space(existingParent(base))), default: false });
   }
   return out;
 }
 
-/** Check a folder the user typed (or picked) and return the storage base inside it. Creates it. */
+/** Running in a container (the ZimaOS app), where only mounted folders reach the real disks. */
+export const inContainer = () =>
+  process.env.ZIMAMC_IN_CONTAINER !== undefined ? process.env.ZIMAMC_IN_CONTAINER === "1" : fs.existsSync("/.dockerenv");
+
+const explicitRoots = () => (process.env.STORAGE_ROOTS ?? "").split(",").map((s) => s.trim()).filter(Boolean);
+
+/**
+ * Folders the user may browse and pick from. In the container only mounted
+ * volumes count: anything else lives inside the container (or, as a bind mount
+ * of a sibling container, on the system disk) and is not what the user meant.
+ */
+export function allowedRoots(): string[] {
+  const extra = explicitRoots();
+  if (IS_WINDOWS) return [...candidateRoots().filter((r) => !r.explicit).map((r) => r.root), ...extra];
+  if (inContainer()) return [...new Set(["/DATA", "/media", DATA_DIR, ...extra])].filter((r) => fs.existsSync(r));
+  return ["/", ...extra];
+}
+
+const isInside = (p: string, root: string) => {
+  const rel = path.relative(path.resolve(root), path.resolve(p));
+  return rel === "" || (!rel.startsWith("..") && !path.isAbsolute(rel));
+};
+
+export const isAllowed = (p: string) => allowedRoots().some((r) => isInside(p, r));
+
+/**
+ * Turn what the user typed or pasted into an existing folder. ZimaOS's Files app
+ * copies paths without the mount point: "/HDD-Storage/Games" is really
+ * "/media/HDD-Storage/Games", and "/ZimaOS-HD/..." is "/DATA/...". The folder must
+ * exist: ZimaMC never creates the user's folder, only its own ZimaMC folder inside.
+ */
+export function resolveUserPath(input: string): string {
+  const raw = String(input ?? "").trim().replace(/^["']|["']$/g, "");
+  if (!raw) throw new HttpError(400, "invalid_path");
+  if (!IS_WINDOWS && !raw.startsWith("/")) throw new HttpError(400, "invalid_path");
+  if (IS_WINDOWS && !path.isAbsolute(raw)) throw new HttpError(400, "invalid_path");
+  const p = path.resolve(raw);
+  const candidates = [p];
+  if (!IS_WINDOWS) {
+    candidates.push(path.join("/media", p));
+    const [, first, ...rest] = p.split("/");
+    if (first === "ZimaOS-HD") candidates.push(path.join("/DATA", ...rest));
+  }
+  const found = candidates.find((c) => {
+    try {
+      return fs.statSync(c).isDirectory();
+    } catch {
+      return false;
+    }
+  });
+  if (!found) throw new HttpError(400, "folder_not_found", { path: raw });
+  if (!isAllowed(found)) throw new HttpError(400, "not_mounted", { path: found });
+  return found;
+}
+
+/** Check a folder the user picked and return the storage base inside it (its ZimaMC folder, created if needed). */
 export async function prepareBase(input: string): Promise<string> {
   const raw = String(input ?? "").trim();
-  if (!raw || !path.isAbsolute(raw)) throw new HttpError(400, "invalid_path");
-  const resolved = path.resolve(raw);
-  if (sameBase(resolved, DATA_DIR)) return DATA_DIR;
-  const base = baseFor(resolved);
+  if (raw && sameBase(path.resolve(raw), DATA_DIR)) return DATA_DIR;
+  // Bases offered by ZimaMC end in ZimaMC and may not exist yet; their parent must.
+  const isBase = path.basename(raw) === BASE_NAME;
+  const folder = resolveUserPath(isBase ? path.dirname(raw) : raw);
+  if (sameBase(folder, DATA_DIR)) return DATA_DIR;
+  const base = baseFor(isBase ? path.join(folder, BASE_NAME) : folder);
   try {
     await fsp.mkdir(base, { recursive: true });
     const probe = path.join(base, `.zimamc-write-test-${process.pid}`);
     await fsp.writeFile(probe, "ok");
     await fsp.rm(probe, { force: true });
   } catch {
-    throw new HttpError(400, "storage_not_writable", { path: resolved });
+    throw new HttpError(400, "storage_not_writable", { path: folder });
   }
   await chownForServer(base);
   return base;
@@ -125,6 +184,62 @@ export async function freeBytes(p: string) {
   return (await space(existingParent(p))).freeBytes;
 }
 
+export async function spaceOf(p: string) {
+  return space(existingParent(p));
+}
+
+/** List the subfolders of a folder, for the folder picker. Without a path: the starting points. */
+export async function browse(input?: string) {
+  if (!input) {
+    const roots = IS_WINDOWS || inContainer() ? allowedRoots() : ["/", ...candidateRoots().map((r) => r.root)];
+    return { path: "", parent: null, dirs: [...new Set(roots)].filter((r) => fs.existsSync(r)).map((r) => ({ name: r, path: r })) };
+  }
+  const p = path.resolve(String(input));
+  if (!isAllowed(p)) throw new HttpError(400, "not_mounted", { path: p });
+  let entries: fs.Dirent[];
+  try {
+    entries = await fsp.readdir(p, { withFileTypes: true });
+  } catch {
+    throw new HttpError(400, "folder_not_found", { path: p });
+  }
+  const dirs = entries
+    .filter((e) => (e.isDirectory() || e.isSymbolicLink()) && !e.name.startsWith("."))
+    .map((e) => ({ name: e.name, path: path.join(p, e.name) }))
+    .filter((d) => {
+      try {
+        return fs.statSync(d.path).isDirectory();
+      } catch {
+        return false;
+      }
+    })
+    .sort((a, b) => a.name.localeCompare(b.name));
+  const up = path.dirname(p);
+  return { path: p, parent: up !== p && isAllowed(up) ? up : "", dirs };
+}
+
+/** Space a folder really takes: a file hardlinked several times counts once. */
+export async function uniqueSize(dir: string, seen = new Set<string>()): Promise<number> {
+  let total = 0;
+  let entries: fs.Dirent[];
+  try {
+    entries = await fsp.readdir(dir, { withFileTypes: true });
+  } catch {
+    return 0;
+  }
+  for (const e of entries) {
+    const p = path.join(dir, e.name);
+    if (e.isDirectory()) total += await uniqueSize(p, seen);
+    else if (e.isFile()) {
+      const st = await fsp.stat(p);
+      const key = `${st.dev}:${st.ino}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      total += st.size;
+    }
+  }
+  return total;
+}
+
 export interface CopyJob {
   state: "copying" | "done" | "failed";
   copied: number;
@@ -132,19 +247,30 @@ export interface CopyJob {
   error?: string;
 }
 
-/** Copy a folder tree, counting bytes for a progress bar. Files are given to the Minecraft user. */
-export async function copyTree(from: string, to: string, onBytes: (n: number) => void) {
+/**
+ * Copy a folder tree, counting bytes for a progress bar. Files are given to the
+ * Minecraft user. Files hardlinked to each other (incremental backups) stay
+ * hardlinked in the copy, so their data is not duplicated.
+ */
+export async function copyTree(from: string, to: string, onBytes: (n: number) => void, links = new Map<string, string>()) {
   await fsp.mkdir(to, { recursive: true });
   await chownForServer(to);
   for (const e of await fsp.readdir(from, { withFileTypes: true })) {
     const a = path.join(from, e.name);
     const b = path.join(to, e.name);
-    if (e.isDirectory()) await copyTree(a, b, onBytes);
+    if (e.isDirectory()) await copyTree(a, b, onBytes, links);
     else if (e.isSymbolicLink()) await fsp.symlink(await fsp.readlink(a), b);
     else if (e.isFile()) {
+      const st = await fsp.stat(a);
+      const key = `${st.dev}:${st.ino}`;
+      const twin = st.nlink > 1 ? links.get(key) : undefined;
+      // Hardlinks take no extra space, so they don't count towards progress either.
+      if (twin && (await fsp.link(twin, b).then(() => true, () => false))) continue;
       await fsp.copyFile(a, b);
+      await fsp.utimes(b, st.atime, st.mtime).catch(() => {});
       await chownForServer(b);
-      onBytes((await fsp.stat(b)).size);
+      if (st.nlink > 1) links.set(key, b);
+      onBytes(st.size);
     }
   }
 }
@@ -156,7 +282,7 @@ export async function copyTree(from: string, to: string, onBytes: (n: number) =>
  */
 export async function startMove(from: string, to: string, job: CopyJob, switchOver: () => void | Promise<void>) {
   if (fs.existsSync(to) && (await fsp.readdir(to)).length > 0) throw new HttpError(409, "target_exists", { path: to });
-  job.total = fs.existsSync(from) ? await dirSize(from) : 0;
+  job.total = await uniqueSize(from);
   if (job.total * 1.05 > (await freeBytes(to))) throw new HttpError(409, "not_enough_space");
   const done = (async () => {
     try {
