@@ -2,7 +2,11 @@ import net from "node:net";
 
 const AUTH = 3;
 const COMMAND = 2;
-/** Any other type makes Minecraft answer "Unknown request", which marks the end of a long reply. */
+/**
+ * Any other type makes Minecraft answer "Unknown request", which marks the end of a long reply.
+ * It is sent only after the first part of the reply arrived: Minecraft closes the connection
+ * when one read holds more than one packet.
+ */
 const SENTINEL = 100;
 
 function packet(id: number, type: number, body: string) {
@@ -18,6 +22,7 @@ function packet(id: number, type: number, body: string) {
 interface Waiter {
   id: number;
   sentinel: number;
+  sentinelSent: boolean;
   parts: string[];
   resolve: (s: string) => void;
   reject: (e: Error) => void;
@@ -98,8 +103,13 @@ export class RconClient {
     }
     const w = this.waiter;
     if (!w) return;
-    if (id === w.id) w.parts.push(body);
-    else if (id === w.sentinel) {
+    if (id === w.id) {
+      w.parts.push(body);
+      if (!w.sentinelSent) {
+        w.sentinelSent = true;
+        this.sock?.write(packet(w.sentinel, SENTINEL, ""));
+      }
+    } else if (id === w.sentinel) {
       this.waiter = undefined;
       w.resolve(w.parts.join(""));
     }
@@ -134,12 +144,12 @@ export class RconClient {
         this.waiter = {
           id,
           sentinel,
+          sentinelSent: false,
           parts: [],
           resolve: (s) => (clearTimeout(timer), resolve(s)),
           reject: (e) => (clearTimeout(timer), reject(e)),
         };
         sock.write(packet(id, COMMAND, cmd));
-        sock.write(packet(sentinel, SENTINEL, ""));
       });
     };
     const p = this.queue.then(run, run);

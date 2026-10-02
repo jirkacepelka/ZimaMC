@@ -43,6 +43,11 @@ net
     let authed = false;
     sock.on("data", (d) => {
       buf = Buffer.concat([buf, d]);
+      // Like Minecraft: one read must hold exactly one packet, otherwise the connection is closed.
+      if (buf.length >= 4 && buf.readInt32LE(0) !== buf.length - 4) {
+        sock.destroy();
+        return;
+      }
       while (buf.length >= 4 && buf.length >= 4 + buf.readInt32LE(0)) {
         const len = buf.readInt32LE(0);
         const id = buf.readInt32LE(4);
