@@ -20,6 +20,16 @@ export const PORT = Number(process.env.PORT ?? 8765);
 // On a desktop PC the panel is only for that PC unless the user opts in; on a NAS it is for the whole network.
 export const HOST = process.env.HOST ?? (IS_WINDOWS ? "127.0.0.1" : "0.0.0.0");
 
+/**
+ * The same path as the Docker host sees it, for bind mounts of Minecraft containers.
+ * Only DATA_DIR may be mounted elsewhere; other disks (/media, /DATA, D:\\) are mounted 1:1.
+ */
+export function toHostPath(p: string) {
+  const rel = path.relative(DATA_DIR, p);
+  if (rel === "" || (!rel.startsWith("..") && !path.isAbsolute(rel))) return path.join(HOST_DATA_DIR, rel);
+  return p;
+}
+
 export const SERVERS_DIR = path.join(DATA_DIR, "servers");
 export const BACKUPS_DIR = path.join(DATA_DIR, "backups");
 export const STORE_FILE = path.join(DATA_DIR, "zimamc.json");

@@ -254,3 +254,8 @@ button.tag.filter.on { background: var(--green); border-color: #000; color: #fff
 .cmd-row code { overflow-wrap: anywhere; }
 .cmd-row .hint:last-child:not(:nth-child(2)) { grid-column: 2; }
 @media (max-width: 600px) { .cmd-row { grid-template-columns: 1fr; } }
+
+/* Placeholder text while a value is still being worked out. */
+.loading-text { color: var(--muted); animation: pulse 1.2s ease-in-out infinite; }
+@keyframes pulse { 50% { opacity: 0.45; } }
+@media (prefers-reduced-motion: reduce) { .loading-text { animation: none; } }

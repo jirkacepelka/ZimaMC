@@ -1,4 +1,5 @@
 import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { buildApp } from "../src/app.js";
@@ -33,13 +34,16 @@ class FakeDocker extends DockerManager {
   override async stats() {
     return null;
   }
+  sent: string[] = [];
   override async rcon(_id: string, cmd: string) {
+    this.sent.push(cmd);
     return cmd === "list" ? "There are 0 of a max of 5 players online:" : "";
   }
 }
 
 const docker = new FakeDocker();
 let app: Awaited<ReturnType<typeof buildApp>>["app"];
+let built: Awaited<ReturnType<typeof buildApp>>;
 let cookie = "";
 
 beforeAll(async () => {
@@ -51,7 +55,8 @@ beforeAll(async () => {
       return new Response("blocked", { status: 503 });
     }),
   );
-  ({ app } = await buildApp({ docker, staticDir: "/nonexistent" }));
+  built = await buildApp({ docker, staticDir: "/nonexistent" });
+  ({ app } = built);
 });
 
 afterAll(async () => {
@@ -199,6 +204,90 @@ describe("API", () => {
     await req("POST", `/api/servers/${id}/start`);
     await new Promise((r) => setTimeout(r, 50));
     expect((await req("GET", `/api/servers/${id}`)).json().server.extraPorts).toEqual([expect.objectContaining({ hostPort: 9000, protocol: "udp" })]);
+  });
+
+  it("keeps a server on another disk and moves it back", async () => {
+    const disk = fs.mkdtempSync(path.join(os.tmpdir(), "zimamc-disk-"));
+    const r = await req("POST", "/api/servers", { name: "Disk", type: "PAPER", version: "1.21.8", maxPlayers: 5, storage: disk, start: false });
+    expect(r.statusCode).toBe(200);
+    const s = r.json().server;
+    expect(s.storagePath).toBe(path.join(disk, "ZimaMC"));
+    await req("PUT", `/api/servers/${s.id}/files/content`, { path: "hello.txt", content: "on the disk" });
+    expect(fs.readFileSync(path.join(disk, "ZimaMC", "servers", s.id, "hello.txt"), "utf8")).toBe("on the disk");
+
+    const storage = (await req("GET", "/api/storage")).json();
+    expect(storage.locations.map((l: { path: string }) => l.path)).toContain(path.join(disk, "ZimaMC"));
+
+    // Moving needs a stopped server.
+    await req("POST", `/api/servers/${s.id}/start`);
+    await new Promise((r) => setTimeout(r, 20));
+    expect((await req("POST", `/api/servers/${s.id}/move`, { storage: DATA_DIR })).json().error).toBe("server_must_be_stopped");
+    await req("POST", `/api/servers/${s.id}/stop`);
+    await new Promise((r) => setTimeout(r, 20));
+    expect((await req("POST", `/api/servers/${s.id}/move`, { storage: DATA_DIR })).statusCode).toBe(200);
+    for (let i = 0; i < 50 && (await req("GET", `/api/servers/${s.id}`)).json().server.move?.state === "copying"; i++) await new Promise((r) => setTimeout(r, 20));
+    const moved = (await req("GET", `/api/servers/${s.id}`)).json().server;
+    expect(moved).toMatchObject({ storagePath: DATA_DIR, move: { state: "done" } });
+    expect((await req("GET", `/api/servers/${s.id}/files/content?path=hello.txt`)).json().content).toBe("on the disk");
+    expect(fs.existsSync(path.join(disk, "ZimaMC", "servers", s.id))).toBe(false);
+    await req("DELETE", `/api/servers/${s.id}`);
+  });
+
+  it("moves backups to another disk", async () => {
+    const disk = fs.mkdtempSync(path.join(os.tmpdir(), "zimamc-disk-"));
+    const id = (await req("GET", "/api/servers")).json().servers[0].id;
+    const { file } = (await req("POST", `/api/servers/${id}/backups`)).json();
+    expect((await req("PUT", "/api/storage/backups", { storage: disk })).statusCode).toBe(200);
+    for (let i = 0; i < 50 && (await req("GET", "/api/storage")).json().backupsMove?.state === "copying"; i++) await new Promise((r) => setTimeout(r, 20));
+    expect((await req("GET", "/api/storage")).json()).toMatchObject({ backups: path.join(disk, "ZimaMC"), backupsMove: { state: "done" } });
+    expect(fs.existsSync(path.join(disk, "ZimaMC", "backups", id, file))).toBe(true);
+    expect((await req("GET", `/api/servers/${id}/backups`)).json().backups.map((b: { file: string }) => b.file)).toContain(file);
+    // And back, so the other tests find their backups where they expect them.
+    await req("PUT", "/api/storage/backups", { storage: DATA_DIR });
+    for (let i = 0; i < 50 && (await req("GET", "/api/storage")).json().backupsMove?.state === "copying"; i++) await new Promise((r) => setTimeout(r, 20));
+  });
+
+  it("offers Chunky only with plugins or mods, and still creates the server if it can't be installed", async () => {
+    expect((await req("POST", "/api/servers", { name: "V", type: "VANILLA", version: "1.21.8", pregen: { radius: 1000 }, start: false })).json().error).toBe("no_plugins_for_vanilla");
+    expect((await req("POST", "/api/servers", { name: "P", type: "PAPER", version: "1.21.8", pregen: { radius: 5 }, start: false })).json().error).toBe("invalid_radius");
+    // Modrinth is unreachable in tests.
+    const r = (await req("POST", "/api/servers", { name: "P", type: "PAPER", version: "1.21.8", pregen: { radius: 1000 }, start: false })).json();
+    expect(r.pregenError).toBeDefined();
+    expect(r.server.pregen).toBeUndefined();
+    await req("DELETE", `/api/servers/${r.server.id}`);
+  });
+
+  it("starts the pre-generation once the server is online", async () => {
+    const id = (await req("GET", "/api/servers")).json().servers[0].id;
+    built.store.updateServer(id, (x) => (x.pregen = { radius: 2500, state: "pending" }));
+    await req("POST", `/api/servers/${id}/start`);
+    await new Promise((r) => setTimeout(r, 20));
+    docker.sent = [];
+    await built.servers.refresh();
+    await new Promise((r) => setTimeout(r, 20));
+    expect(docker.sent).toEqual(expect.arrayContaining(["chunky radius 2500", "chunky start"]));
+    expect(built.store.server(id)?.pregen?.state).toBe("running");
+    // Only once.
+    docker.sent = [];
+    await built.servers.refresh();
+    expect(docker.sent.filter((c) => c.startsWith("chunky"))).toEqual([]);
+  });
+
+  it("estimates Chunky after a silent benchmark", async () => {
+    await req("POST", "/api/benchmark", {});
+    let est = (await req("GET", "/api/pregen/estimate?type=PAPER&cpus=2")).json();
+    for (let i = 0; i < 100 && !est.ready; i++) {
+      await new Promise((r) => setTimeout(r, 50));
+      est = (await req("GET", "/api/pregen/estimate?type=PAPER&cpus=2")).json();
+    }
+    expect(est).toMatchObject({ ready: true, chunksPerSecond: expect.any(Number), bytesPerChunk: expect.any(Number), freeBytes: expect.any(Number) });
+    expect(est.chunksPerSecond).toBeGreaterThan(0);
+  });
+
+  it("knows when Chunky is installed, for the console cheat sheet", async () => {
+    const id = (await req("GET", "/api/servers")).json().servers[0].id;
+    fs.writeFileSync(path.join(DATA_DIR, "servers", id, "plugins", "Chunky-Bukkit-1.4.40.jar"), makeZip({ "plugin.yml": "name: Chunky\ncommands:\n  chunky:\n    description: Pre-generates chunks\n" }));
+    expect((await req("GET", `/api/servers/${id}/commands`)).json().known).toEqual(["chunky"]);
   });
 
   it("deletes a server and its files", async () => {

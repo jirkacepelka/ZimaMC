@@ -168,7 +168,8 @@
       "medium": "Střední",
       "large": "Velký"
     },
-    "overBudget": "Spolu s ostatními běžícími servery je to víc, než tvůj limit {{limit}}. To funguje, dokud nejedou všechny naplno najednou."
+    "overBudget": "Spolu s ostatními běžícími servery je to víc, než tvůj limit {{limit}}. To funguje, dokud nejedou všechny naplno najednou.",
+    "stepWorld": "Svět"
   },
   "tabs": {
     "label": "Části serveru",
@@ -231,6 +232,24 @@
       "seed": "Ukázat seed světa",
       "save": "Uložit svět hned",
       "stop": "Vypnout server"
+    },
+    "chunkyTitle": "Chunky (předgenerování světa)",
+    "chunkyHint": "Nejdřív nastav oblast (radius, střed, tvar), pak spusť.",
+    "chunky": {
+      "start": "Spustit generování vybrané oblasti",
+      "pause": "Pozastavit, průběh zůstane",
+      "continue": "Pokračovat v pozastavené úloze",
+      "cancel": "Zastavit úlohu (pak potvrdit)",
+      "progress": "Ukázat, jak je daleko",
+      "radius": "Nastavit radius v blocích",
+      "center": "Nastavit střed (x z)",
+      "spawn": "Střed na spawn světa",
+      "world": "Vybrat svět",
+      "shape": "Tvar: square (čtverec) nebo circle (kruh)",
+      "selection": "Ukázat aktuální nastavení",
+      "trim": "Smazat chunky mimo oblast (pak potvrdit)",
+      "confirm": "Potvrdit zrušení nebo trim",
+      "help": "Vypsat všechny příkazy Chunky"
     }
   },
   "plugins": {
@@ -530,7 +549,15 @@
     "playit_no_claim": "Nejdřív začni připojovat playit.gg.",
     "playit_not_connected": "Nejdřív připoj playit.gg.",
     "invalid_ip": "Tohle není platná IPv4 adresa.",
-    "invalid_max_players": "Zvol maximální počet hráčů od 1 do 500."
+    "invalid_max_players": "Zvol maximální počet hráčů od 1 do 500.",
+    "storage_not_writable": "ZimaMC nemůže zapisovat do {{path}}. Vyber jinou složku; v ZimaOS musí být pod /DATA nebo /media.",
+    "server_must_be_stopped": "Nejdřív server vypni.",
+    "move_in_progress": "Přesun už probíhá.",
+    "not_enough_space": "Na tom disku není dost volného místa.",
+    "target_exists": "V {{path}} už složka serveru je.",
+    "move_failed": "Kopírování souborů se nepovedlo.",
+    "invalid_radius": "Zvol radius od 100 do 30 000 bloků.",
+    "chunky_install_failed": "Modrinth není dostupný."
   },
   "details": {
     "about": "Popis",
@@ -591,5 +618,76 @@
   "windows": {
     "getDocker": "Stáhnout Docker Desktop",
     "stayOn": "ZimaMC běží na tomhle počítači: servery jsou online jen dokud je zapnutý a nespí. Docker Desktop musí běžet."
+  },
+  "storage": {
+    "where": "Kam ho uložit",
+    "default": "Složka ZimaMC",
+    "free": "{{free}} volných z {{total}}",
+    "tooSmall": "Málo volného místa",
+    "mountHint": "Dostupná je jen vlastní složka ZimaMC. V ZimaOS znovu naimportuj ZimaMC s nejnovějším docker-compose.yml, aby se tu objevily další disky (/media) a /DATA.",
+    "customTitle": "Jiná složka",
+    "customPlaceholder": "/DATA/Games nebo D:\\Minecraft",
+    "check": "Použít tuto složku",
+    "customHint": "ZimaMC si v ní vytvoří složku ZimaMC. V ZimaOS musí být pod /DATA nebo /media.",
+    "title": "Úložiště",
+    "move": "Přesunout na jiný disk",
+    "moveHint": "Přesun zkopíruje svět, pluginy a nastavení a pak smaže starou kopii.",
+    "stopFirst": "Pro přesun server vypni.",
+    "moveTitle": "Přesunout {{name}}",
+    "moveText": "U velkých světů to může chvíli trvat. Do konce přesunu server nepůjde spustit.",
+    "moveConfirm": "Přesunout",
+    "moving": "Přesouvám… {{copied}} z {{total}}",
+    "moveDone": "Přesunuto.",
+    "moveFailed": "Přesun se nepovedl, nic se nezměnilo: {{reason}}",
+    "backupsTitle": "Kde jsou zálohy",
+    "backupsText": "Zálohy na jiném disku než světy je ochrání, když disk selže. Stávající zálohy se přesunou taky.",
+    "moveBackups": "Přesunout zálohy sem"
+  },
+  "chunky": {
+    "title": "Předgenerovat svět?",
+    "text": "Chunky vytvoří krajinu kolem spawnu dopředu. Bez něj server staví novou krajinu, až když ji hráči prozkoumávají, a právě to dělá lagy. Proběhne jednou na pozadí a mezitím se dá hrát.",
+    "yes": "Ano, nainstalovat Chunky",
+    "yesText": "Plynulé prozkoumávání od prvního dne. Jednou to zabere čas a místo na disku.",
+    "no": "Ne, díky",
+    "noText": "Svět se bude tvořit, jak ho hráči prozkoumají. Chunky jde přidat i později.",
+    "calculating": "Počítám…",
+    "blocks": "{{radius}} bloků",
+    "area": "Oblast {{size}} × {{size}} bloků",
+    "estimate": "{{size}} · asi {{time}}",
+    "recommended": "Doporučeno",
+    "noSpace": "Málo volného místa",
+    "custom": "Nebo vlastní radius v blocích",
+    "customPlaceholder": "např. 3000",
+    "summary": "{{chunks}} chunků: asi {{size}} na disku (volných {{free}}) a {{time}} generování.",
+    "estimateHint": "Odhad podle rychlého testu tohoto stroje. Skutečný čas se liší podle verze, módů a toho, co dalšího běží.",
+    "installFailed": "Server je vytvořený, ale Chunky se nepodařilo nainstalovat. {{reason}} Přidat ho můžeš na stránce Pluginy nebo Módy."
+  },
+  "time": {
+    "underMinute": "méně než minuta",
+    "minutes_one": "{{count}} min",
+    "minutes_few": "{{count}} min",
+    "minutes_many": "{{count}} min",
+    "minutes_other": "{{count}} min",
+    "hours": "{{h}} h {{m}} min"
+  },
+  "pregen": {
+    "title": "Předgenerování světa",
+    "waiting": "Chunky po spuštění serveru vygeneruje {{radius}} bloků kolem spawnu.",
+    "starting": "Spouštím Chunky…",
+    "running": "Generuju {{radius}} bloků kolem spawnu…",
+    "offline": "Pozastaveno, dokud je server vypnutý. Chunky pokračuje po spuštění.",
+    "progress": "{{percent}} % · {{chunks}} chunků",
+    "eta": "zbývá {{eta}}",
+    "rate": "{{rate}} chunků/s",
+    "paused": "Pozastaveno.",
+    "cancelled": "Zrušeno.",
+    "done": "Hotovo: {{radius}} bloků kolem spawnu je připraveno.",
+    "failed": "Chunky se nespustil. Zkontroluj, že je nainstalovaný na stránce Pluginy nebo Módy, a spusť ho v konzoli příkazem „chunky start“.",
+    "hint": "Hráči se můžou připojit i během generování.",
+    "pause": "Pozastavit",
+    "continue": "Pokračovat",
+    "cancel": "Zrušit",
+    "cancelTitle": "Zrušit předgenerování?",
+    "cancelText": "Dosud vygenerovaná krajina zůstane. Později ho můžeš znovu spustit z konzole."
   }
 }

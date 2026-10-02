@@ -113,3 +113,39 @@ export function plainText(s: string) {
     .replace(/§[0-9a-fk-orx]/gi, "")
     .trim();
 }
+
+export interface ChunkyProgress {
+  state: "running" | "finished" | "paused" | "cancelled";
+  world?: string;
+  chunks?: number;
+  percent?: number;
+  eta?: string;
+  rate?: number;
+}
+
+/**
+ * Find the newest Chunky status line in the server log, e.g.
+ * "[Chunky] Task running for minecraft:overworld. Processed: 5,000 chunks (1.28%), ETA: 0:12:03, Rate: 39.3 cps, Current: 112, -304"
+ * "[Chunky] Task finished for minecraft:overworld. Processed: 390,625 chunks (100.00%), Total time: 1:05:20"
+ */
+export function parseChunkyProgress(log: string): ChunkyProgress | null {
+  const lines = plainText(log).split("\n").reverse();
+  const num = (s?: string) => (s === undefined ? undefined : Number(s.replace(/[,\s]/g, "")));
+  for (const l of lines) {
+    const m = l.match(/Task (running|finished|paused|stopped|cancelled) for ([^\s.]+(?:\.[^\s.]+)*?)\.(?: Processed: ([\d,.\s]+) chunks \(([\d.,]+)%\))?(?:.*?ETA: ([\d:]+))?(?:.*?Rate: ([\d.,]+) cps)?/i);
+    if (m) {
+      const state = m[1].toLowerCase() === "stopped" ? "paused" : (m[1].toLowerCase() as ChunkyProgress["state"]);
+      return {
+        state,
+        world: m[2],
+        chunks: num(m[3]),
+        percent: m[4] ? Number(m[4].replace(",", ".")) : state === "finished" ? 100 : undefined,
+        eta: m[5],
+        rate: m[6] ? Number(m[6].replace(",", "")) : undefined,
+      };
+    }
+    if (/\[Chunky\].*(Task cancelled|Cancelled task|cancelled)/i.test(l)) return { state: "cancelled" };
+    if (/\[Chunky\].*(Task paused|Paused task|paused)/i.test(l)) return { state: "paused" };
+  }
+  return null;
+}

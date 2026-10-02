@@ -1,7 +1,8 @@
 import Docker from "dockerode";
 import path from "node:path";
 import { PassThrough, type Readable } from "node:stream";
-import { CONTAINER_PREFIX, HOST_DATA_DIR, IS_WINDOWS, MC_IMAGE } from "./config.js";
+import { CONTAINER_PREFIX, IS_WINDOWS, MC_IMAGE, toHostPath } from "./config.js";
+import { serverDir } from "./paths.js";
 import { containerEnv, imageTag, plainText } from "./minecraft.js";
 import { containerMemoryMB } from "./resources.js";
 import type { ServerConfig } from "./store.js";
@@ -112,7 +113,7 @@ export class DockerManager {
       Tty: false,
       OpenStdin: true,
       HostConfig: {
-        Binds: [`${path.join(HOST_DATA_DIR, "servers", s.id)}:/data`],
+        Binds: [`${toHostPath(serverDir(s.id))}:/data`],
         PortBindings: Object.fromEntries([
           ["25565/tcp", [{ HostPort: String(s.port) }]],
           ...(s.extraPorts ?? []).map((p) => [`${p.containerPort}/${p.protocol}`, [{ HostPort: String(p.hostPort) }]]),
@@ -226,8 +227,28 @@ export class DockerManager {
     return out;
   }
 
+  /** The last lines of the container's log as text (no following). */
+  async logTail(id: string, tail: number): Promise<string> {
+    const raw = (await this.container(id).logs({ follow: false, stdout: true, stderr: true, tail })) as unknown as Buffer;
+    return demux(Buffer.isBuffer(raw) ? raw : Buffer.from(String(raw)));
+  }
+
   /** Every container ZimaMC created, including ones whose server no longer exists. */
   async listManaged() {
     return this.docker.listContainers({ all: true, filters: { label: ["zimamc.server"] } });
   }
+}
+
+/** Docker's log format without a TTY: 8-byte frame headers (stream, 0, 0, 0, size) before each chunk. */
+export function demux(buf: Buffer) {
+  const parts: Buffer[] = [];
+  let i = 0;
+  while (i + 8 <= buf.length && buf[i] <= 2 && buf[i + 1] === 0 && buf[i + 2] === 0 && buf[i + 3] === 0) {
+    const size = buf.readUInt32BE(i + 4);
+    parts.push(buf.subarray(i + 8, i + 8 + size));
+    i += 8 + size;
+  }
+  // Not multiplexed (or trailing garbage): keep the rest as it is.
+  if (i < buf.length) parts.push(buf.subarray(i));
+  return Buffer.concat(parts).toString("utf8");
 }

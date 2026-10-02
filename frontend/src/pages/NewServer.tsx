@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
 import { formatMB, get, post, type Server, type ServerType } from "../api";
+import { ChunkyPlanner } from "../components/ChunkyPlanner";
+import { StoragePicker, useStorage } from "../components/StoragePicker";
 import { Expert, useApp, useErrorText, useToast } from "../ui";
 
 const SIZES = {
@@ -21,7 +23,7 @@ export default function NewServer() {
   const nav = useNavigate();
   const toast = useToast();
   const errorText = useErrorText();
-  const { system } = useApp();
+  const { system, advanced } = useApp();
 
   const [step, setStep] = useState(1);
   const [name, setName] = useState("");
@@ -35,6 +37,10 @@ export default function NewServer() {
   const [memoryMB, setMemoryMB] = useState<number>(SIZES.small.memoryMB);
   const [cpus, setCpus] = useState(2);
   const [players, setPlayers] = useState("");
+  const [storageInfo] = useStorage();
+  const [storage, setStorage] = useState("");
+  const [chunky, setChunky] = useState<boolean | null>(null);
+  const [radius, setRadius] = useState<number | null>(null);
   const [port, setPort] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -61,6 +67,16 @@ export default function NewServer() {
 
   useEffect(() => setCpus(Math.min(2, maxCpu)), [maxCpu]);
 
+  const where = storage || storageInfo?.locations[0]?.path || "";
+  // Measure this machine quietly in the background, so the Chunky estimate is ready by the last step.
+  useEffect(() => {
+    post("/api/benchmark", { storage: where }).catch(() => {});
+  }, [where]);
+
+  // Plugin and mod servers get a last step offering Chunky.
+  const worldStep = kind !== "vanilla";
+  const showStorage = Boolean(storageInfo && (storageInfo.locations.length > 1 || advanced || storageInfo.mountHint));
+
   const pickSize = (s: Size) => {
     setSize(s);
     setMemoryMB(Math.min(SIZES[s].memoryMB, maxMem));
@@ -70,7 +86,8 @@ export default function NewServer() {
     setBusy(true);
     setError("");
     try {
-      const r = await post<{ server: Server; startError?: { error: string; params: Record<string, unknown> } }>("/api/servers", {
+      type Problem = { error: string; params: Record<string, unknown> };
+      const r = await post<{ server: Server; startError?: Problem; pregenError?: Problem }>("/api/servers", {
         name,
         type,
         version: version || versions?.[0],
@@ -79,7 +96,10 @@ export default function NewServer() {
         memoryMB,
         cpus,
         port: port ? Number(port) : undefined,
+        storage: storage || undefined,
+        pregen: worldStep && chunky && radius ? { radius } : undefined,
       });
+      if (r.pregenError) toast(t("chunky.installFailed", { reason: t(`errors.${r.pregenError.error}`, { ...r.pregenError.params, defaultValue: r.pregenError.error }) }), true);
       if (r.startError) toast(t("newServer.createdNotStarted", { reason: t(`errors.${r.startError.error}`, r.startError.params) }), true);
       else toast(t("newServer.created"));
       nav(`/servers/${r.server.id}/console`);
@@ -94,7 +114,7 @@ export default function NewServer() {
     <main className="narrow">
       <h1>{t("newServer.title")}</h1>
       <div className="steps">
-        {[t("newServer.stepName"), t("newServer.stepGame"), t("newServer.stepSize")].map((label, i) => (
+        {[t("newServer.stepName"), t("newServer.stepGame"), t("newServer.stepSize"), ...(worldStep ? [t("newServer.stepWorld")] : [])].map((label, i) => (
           <span key={label} className={`step${step === i + 1 ? " cur" : step > i + 1 ? " done" : ""}`}>
             {i + 1} · {label}
           </span>
@@ -209,6 +229,12 @@ export default function NewServer() {
             </div>
           </div>
           {kind === "mods" && <p className="hint">{t("newServer.modsMemoryHint")}</p>}
+          {showStorage && storageInfo && (
+            <div className="field">
+              {t("storage.where")}
+              <StoragePicker info={storageInfo} value={where} onChange={setStorage} />
+            </div>
+          )}
           {type === "FOLIA" && <p className="hint">{t("newServer.foliaHint")}</p>}
           <Expert>
             <label className="field">
@@ -244,7 +270,41 @@ export default function NewServer() {
               {t("common.back")}
             </button>
             <div className="spacer" />
-            <button className="btn big" disabled={busy || !playersOk} onClick={create}>
+            {worldStep ? (
+              <button className="btn big" disabled={!playersOk} onClick={() => setStep(4)}>
+                {t("common.next")}
+              </button>
+            ) : (
+              <button className="btn big" disabled={busy || !playersOk} onClick={create}>
+                {busy ? t("newServer.creating") : t("newServer.create")}
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+
+      {step === 4 && worldStep && (
+        <div className="panel stack">
+          <h2>{t("chunky.title")}</h2>
+          <p>{t("chunky.text")}</p>
+          <div className="choices">
+            <button type="button" className="choice" aria-pressed={chunky === true} onClick={() => setChunky(true)}>
+              <b>{t("chunky.yes")}</b>
+              <small>{t("chunky.yesText")}</small>
+            </button>
+            <button type="button" className="choice" aria-pressed={chunky === false} onClick={() => setChunky(false)}>
+              <b>{t("chunky.no")}</b>
+              <small>{t("chunky.noText")}</small>
+            </button>
+          </div>
+          {chunky && <ChunkyPlanner type={type} cpus={cpus} storage={where} radius={radius} onChange={setRadius} />}
+          {error && <p className="error-text">{error}</p>}
+          <div className="row">
+            <button className="btn stone" onClick={() => setStep(3)}>
+              {t("common.back")}
+            </button>
+            <div className="spacer" />
+            <button className="btn big" disabled={busy || chunky === null || (chunky && !radius)} onClick={create}>
               {busy ? t("newServer.creating") : t("newServer.create")}
             </button>
           </div>

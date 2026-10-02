@@ -11,6 +11,7 @@ import { Auth } from "./auth.js";
 import { Backups } from "./backups.js";
 import { VERSION } from "./config.js";
 import { DockerManager } from "./docker.js";
+import { Benchmarks, BYTES_PER_CHUNK, chunksPerSecond } from "./benchmark.js";
 import * as content from "./content.js";
 import * as files from "./files.js";
 import * as modrinth from "./modrinth.js";
@@ -22,6 +23,7 @@ import { isMapped, openPort } from "./network/upnp.js";
 import { Players, type PlayerList } from "./players.js";
 import { defaultLimits, hostInfo } from "./resources.js";
 import { Servers } from "./servers.js";
+import { freeBytes, listLocations, prepareBase } from "./storage.js";
 import { HttpError, Store, type ExtraPort, type ServerType } from "./store.js";
 import { listVersions } from "./versions.js";
 
@@ -40,6 +42,7 @@ export async function buildApp(deps: AppDeps = {}) {
   const players = new Players(docker);
   const playit = new Playit(store, docker);
   const servers = new Servers(store, docker, players, playit);
+  const benchmarks = new Benchmarks(store);
   const backups = new Backups(store, docker);
 
   const app = Fastify({ logger: { level: process.env.LOG_LEVEL ?? "warn" }, bodyLimit: 5 * 1024 * 1024 });
@@ -167,11 +170,9 @@ export async function buildApp(deps: AppDeps = {}) {
   app.get("/api/servers", async () => ({ servers: store.servers.map((s) => servers.view(s)) }));
 
   app.post<{ Body: Parameters<Servers["create"]>[0] }>("/api/servers", async (req) => {
-    const { server, startError } = await servers.create(req.body ?? ({} as never));
-    return {
-      server: servers.view(server),
-      startError: startError ? { error: startError.code, params: startError.params ?? {} } : undefined,
-    };
+    const { server, startError, pregenError } = await servers.create(req.body ?? ({} as never));
+    const err = (e?: HttpError) => (e ? { error: e.code, params: e.params ?? {} } : undefined);
+    return { server: servers.view(server), startError: err(startError), pregenError: err(pregenError) };
   });
 
   app.get<IdParams>("/api/servers/:id", async (req) => ({ server: servers.view(servers.get(req.params.id)) }));
@@ -211,12 +212,62 @@ export async function buildApp(deps: AppDeps = {}) {
     return { output: await docker.rcon(req.params.id, cmd) };
   });
 
+  // ---- Storage (disks) ----
+
+  app.get("/api/storage", async () => {
+    const inUse = [...store.servers.map((s) => s.storage), store.settings.backupsStorage].filter((x): x is string => Boolean(x));
+    const locations = await listLocations(inUse);
+    return {
+      locations,
+      backups: store.settings.backupsStorage ?? locations[0].path,
+      backupsMove: servers.moves.get("backups") ?? null,
+      // Only the data folder is visible: on ZimaOS the app needs /media and /DATA mounted to see other disks.
+      mountHint: process.platform !== "win32" && locations.length === 1,
+    };
+  });
+
+  app.post<{ Body: { path: string } }>("/api/storage/check", async (req) => {
+    const base = await prepareBase(String(req.body?.path ?? ""));
+    return { path: base, freeBytes: await freeBytes(base) };
+  });
+
+  app.post<IdParams & { Body: { storage: string } }>("/api/servers/:id/move", async (req) => servers.moveServer(req.params.id, String(req.body?.storage ?? "")));
+
+  app.put<{ Body: { storage: string } }>("/api/storage/backups", async (req) => servers.moveBackups(String(req.body?.storage ?? "")));
+
+  // ---- Chunky estimate: a silent benchmark runs in the background the first time ----
+
+  /** Only benchmark places offered to the user, never an arbitrary path from a request. */
+  const knownStorage = async (p?: string) => {
+    const inUse = store.servers.map((s) => s.storage).filter((x): x is string => Boolean(x));
+    const locations = await listLocations(inUse);
+    return locations.find((l) => p && l.path === p)?.path ?? locations[0].path;
+  };
+
+  app.post<{ Body: { storage?: string } }>("/api/benchmark", async (req) => {
+    benchmarks.start(await knownStorage(req.body?.storage));
+    return { ok: true };
+  });
+
+  app.get<{ Querystring: { type?: string; cpus?: string; storage?: string } }>("/api/pregen/estimate", async (req) => {
+    const storage = await knownStorage(req.query.storage);
+    const r = benchmarks.results(storage);
+    if (!r) return { ready: false };
+    const host = hostInfo(await docker.info().catch(() => undefined));
+    const type = (["PAPER", "FOLIA", "FABRIC", "FORGE"].includes(String(req.query.type)) ? req.query.type : "PAPER") as ServerType;
+    const cps = chunksPerSecond(type, Number(req.query.cpus) || 2, host.cpus, r.cpuScore);
+    return { ready: true, chunksPerSecond: cps, bytesPerChunk: BYTES_PER_CHUNK, diskMBps: r.diskMBps, freeBytes: await freeBytes(storage) };
+  });
+
+  app.get<IdParams>("/api/servers/:id/pregen", async (req) => servers.pregenStatus(req.params.id));
+
   // Where each plugin or mod keeps its settings, and the commands plugins declare.
   app.get<IdParams>("/api/servers/:id/content", async (req) => ({ items: await content.inspectAll(servers.get(req.params.id)) }));
 
   app.get<IdParams>("/api/servers/:id/commands", async (req) => {
     const s = servers.get(req.params.id);
-    const items = (await content.inspectAll(s)).filter((i) => i.commands.length > 0);
+    const all = await content.inspectAll(s);
+    const items = all.filter((i) => i.commands.length > 0);
     let live: content.LiveCommand[] | null = null;
     if (await docker.isRunning(s.id)) {
       try {
@@ -225,7 +276,9 @@ export async function buildApp(deps: AppDeps = {}) {
         live = null;
       }
     }
-    return { plugins: items.map((i) => ({ name: i.name, commands: i.commands })), live };
+    // Add-ons ZimaMC has its own cheat sheet for.
+    const known = all.some((i) => i.name.toLowerCase().replace(/[^a-z]/g, "") === "chunky") ? ["chunky"] : [];
+    return { plugins: items.map((i) => ({ name: i.name, commands: i.commands })), live, known };
   });
 
   app.get<IdParams>("/api/servers/:id/console", { websocket: true }, async (socket, req) => {

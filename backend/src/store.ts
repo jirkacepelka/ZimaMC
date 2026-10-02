@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { STORE_FILE } from "./config.js";
+import { setBackupsBase, setServerBase } from "./paths.js";
 
 export type ServerType = "PAPER" | "FOLIA" | "VANILLA" | "FABRIC" | "FORGE";
 
@@ -55,6 +56,10 @@ export interface ServerConfig {
   tunnel?: { tunnelId: string; address?: string };
   /** Ports besides the game port: web maps, voice chat, … */
   extraPorts?: ExtraPort[];
+  /** Storage base (folder with servers/ and backups/) on another disk; unset = the data folder. */
+  storage?: string;
+  /** World pre-generation with Chunky, chosen when the server was created. */
+  pregen?: { radius: number; state: "pending" | "running" | "done" | "failed"; error?: string };
   createdAt: string;
 }
 
@@ -66,6 +71,10 @@ export interface Settings {
   network: { lanIp?: string; publicIp?: string; upnp: boolean };
   cloudflare?: { token: string };
   playit?: { secretKey: string; agentId?: string };
+  /** Storage base for backups; unset = the data folder. */
+  backupsStorage?: string;
+  /** Result of the silent CPU benchmark used for time estimates. */
+  benchmark?: { cpuScore: number; at: string };
 }
 
 export interface StoreData {
@@ -97,9 +106,17 @@ export class Store {
         servers: loaded.servers ?? [],
       };
     }
+    this.syncPaths();
+  }
+
+  /** Tell paths.ts where every server and the backups live. */
+  syncPaths() {
+    for (const s of this.data.servers) setServerBase(s.id, s.storage);
+    setBackupsBase(this.data.settings.backupsStorage);
   }
 
   save() {
+    this.syncPaths();
     fs.mkdirSync(path.dirname(this.file), { recursive: true });
     const tmp = `${this.file}.tmp`;
     fs.writeFileSync(tmp, JSON.stringify(this.data, null, 2), { mode: 0o600 });

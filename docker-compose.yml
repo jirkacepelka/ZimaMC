@@ -18,9 +18,17 @@ services:
       - type: bind
         source: /var/run/docker.sock
         target: /var/run/docker.sock
+      # The ZimaOS storage, including the data folder /DATA/AppData/zimamc. Mounted at
+      # the same path so servers can be kept anywhere on it.
       - type: bind
-        source: /DATA/AppData/zimamc
-        target: /DATA/AppData/zimamc
+        source: /DATA
+        target: /DATA
+      # Other drives (USB, extra disks). rslave: drives plugged in later show up too.
+      - type: bind
+        source: /media
+        target: /media
+        bind:
+          propagation: rslave
     x-casaos:
       envs:
         - container: TZ
@@ -30,9 +38,12 @@ services:
           description:
             en_us: Set to true and restart to choose a new password
       volumes:
-        - container: /DATA/AppData/zimamc
+        - container: /DATA
           description:
-            en_us: Worlds, plugins and backups
+            en_us: ZimaOS storage. ZimaMC keeps its data in /DATA/AppData/zimamc and can put servers anywhere here.
+        - container: /media
+          description:
+            en_us: Other drives, so you can choose where each server is stored
 x-casaos:
   architectures:
     - amd64

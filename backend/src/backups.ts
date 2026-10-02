@@ -2,9 +2,9 @@ import fs from "node:fs";
 import fsp from "node:fs/promises";
 import path from "node:path";
 import * as tar from "tar";
-import { BACKUPS_DIR } from "./config.js";
 import type { DockerManager } from "./docker.js";
 import { safeJoin, serverDir } from "./files.js";
+import { backupDir } from "./paths.js";
 import { HttpError, type ServerConfig, type Store } from "./store.js";
 
 /** Downloaded server software and caches: large, and re-downloaded automatically. */
@@ -25,7 +25,6 @@ export interface BackupInfo {
   auto: boolean;
 }
 
-const backupDir = (id: string) => path.join(BACKUPS_DIR, id);
 
 export class Backups {
   private running = new Set<string>();

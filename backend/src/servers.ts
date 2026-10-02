@@ -3,10 +3,11 @@ import fsp from "node:fs/promises";
 import dgram from "node:dgram";
 import net from "node:net";
 import path from "node:path";
-import { BACKUPS_DIR, DATA_DIR } from "./config.js";
+import { DATA_DIR } from "./config.js";
 import type { DockerManager, ServerStats, ServerStatus } from "./docker.js";
 import { dirSize, ensureDir, serverDir } from "./files.js";
-import { SERVER_TYPES, contentKind, defaultProperties } from "./minecraft.js";
+import { backupDir } from "./paths.js";
+import { SERVER_TYPES, contentKind, defaultProperties, parseChunkyProgress } from "./minecraft.js";
 import { applyDomain, deleteRecord, fqdn } from "./network/cloudflare.js";
 import { lanIp, publicIp } from "./network/ip.js";
 import type { Playit } from "./network/playit.js";
@@ -15,7 +16,9 @@ import type { Players } from "./players.js";
 import { assertServerLimits, containerMemoryMB, effectiveCpus, reserved } from "./resources.js";
 import { detectServices, serviceById } from "./services.js";
 import { HttpError, type ExtraPort, type ServerConfig, type ServerType, type Store } from "./store.js";
+import * as modrinth from "./modrinth.js";
 import { listVersions } from "./versions.js";
+import { prepareBase, sameBase, startMove, type CopyJob } from "./storage.js";
 
 export const SIZE_PRESETS = {
   small: { memoryMB: 2048 },
@@ -34,7 +37,14 @@ export interface CreateServerInput {
   cpus?: number;
   port?: number;
   start?: boolean;
+  /** Storage base on another disk (see storage.ts); unset = the data folder. */
+  storage?: string;
+  /** Install Chunky and pre-generate this many blocks around spawn on the first start. */
+  pregen?: { radius: number };
 }
+
+/** Modrinth project of Chunky, the world pre-generator (plugin and mod). */
+export const CHUNKY_PROJECT = "chunky";
 
 function portFree(port: number, protocol: "tcp" | "udp" = "tcp") {
   return new Promise<boolean>((resolve) => {
@@ -71,6 +81,9 @@ export class Servers {
   /** Latest status and usage of each server, refreshed in the background. */
   live = new Map<string, Live>();
   private busy = new Set<string>();
+  /** Running or finished moves to another disk, by server id ("backups" for the backups folder). */
+  moves = new Map<string, CopyJob>();
+  private pregenStarting = new Set<string>();
   private lastPublicIp?: string;
 
   constructor(
@@ -118,6 +131,13 @@ export class Servers {
     }
     if (!/^\d+\.\d+(\.\d+)?$/.test(version)) throw new HttpError(400, "invalid_version");
 
+    const pregenRadius = input.pregen ? Math.round(Number(input.pregen.radius)) : undefined;
+    if (pregenRadius !== undefined) {
+      if (input.type === "VANILLA") throw new HttpError(400, "no_plugins_for_vanilla");
+      if (!Number.isFinite(pregenRadius) || pregenRadius < 100 || pregenRadius > 30000) throw new HttpError(400, "invalid_radius");
+    }
+    const storage = input.storage ? await prepareBase(input.storage) : undefined;
+
     let port = input.port ? Number(input.port) : await this.nextPort();
     if (!Number.isInteger(port) || port < 1024 || port > 65535) throw new HttpError(400, "invalid_port");
     if (this.store.servers.some((s) => s.port === port)) throw new HttpError(409, "port_in_use", { port });
@@ -135,11 +155,27 @@ export class Servers {
       autoStart: true,
       projects: [],
       backup: { everyHours: 24, keep: 7 },
+      storage: storage && !sameBase(storage, DATA_DIR) ? storage : undefined,
       createdAt: new Date().toISOString(),
     };
-    await ensureDir(serverDir(s.id));
     this.store.servers.push(s);
     this.store.save();
+    await ensureDir(serverDir(s.id));
+
+    // Chunky goes in before the first start, so the world is pre-generated right away.
+    let pregenError: HttpError | undefined;
+    if (pregenRadius !== undefined) {
+      try {
+        const installed = await modrinth.install(s, CHUNKY_PROJECT);
+        this.store.updateServer(s.id, (x) => {
+          for (const p of installed) x.projects = [...x.projects.filter((q) => q.projectId !== p.projectId), p];
+          x.pregen = { radius: pregenRadius, state: "pending" };
+        });
+      } catch (e) {
+        console.error(`[chunky] ${s.name}:`, e);
+        pregenError = e instanceof HttpError ? e : new HttpError(502, "chunky_install_failed");
+      }
+    }
     let startError: HttpError | undefined;
     if (input.start !== false) {
       try {
@@ -151,7 +187,7 @@ export class Servers {
         startError = e;
       }
     }
-    return { server: s, startError };
+    return { server: s, startError, pregenError };
   }
 
   async update(id: string, patch: Partial<ServerConfig>) {
@@ -202,7 +238,7 @@ export class Servers {
     this.live.delete(id);
     if (deleteFiles) {
       await fsp.rm(serverDir(id), { recursive: true, force: true });
-      await fsp.rm(path.join(BACKUPS_DIR, id), { recursive: true, force: true });
+      await fsp.rm(backupDir(id), { recursive: true, force: true });
     }
   }
 
@@ -358,8 +394,84 @@ export class Servers {
         const stats = running ? await this.docker.stats(s.id) : null;
         const players = status === "online" ? await this.players.quickOnline(s) : { online: 0, max: s.properties.maxPlayers, names: [] };
         this.live.set(s.id, { status, stats, players });
+        if (status === "online" && s.pregen?.state === "pending") void this.startPregen(s.id);
       }),
     );
+  }
+
+  /** First start with Chunky: select the overworld, set the radius around spawn and start. */
+  async startPregen(id: string) {
+    if (this.pregenStarting.has(id)) return;
+    this.pregenStarting.add(id);
+    try {
+      const s = this.get(id);
+      if (!s.pregen || s.pregen.state !== "pending") return;
+      // The world is called "world" unless changed; Chunky falls back to the first world otherwise.
+      await this.docker.rcon(id, "chunky world world").catch(() => "");
+      const out = [await this.docker.rcon(id, `chunky radius ${s.pregen.radius}`), await this.docker.rcon(id, "chunky start")].join("\n");
+      const failed = /unknown (or incomplete )?command|unknown command/i.test(out);
+      this.store.updateServer(id, (x) => {
+        if (x.pregen) x.pregen = { ...x.pregen, state: failed ? "failed" : "running", error: failed ? "chunky_missing" : undefined };
+      });
+    } catch (e) {
+      console.error("[chunky]", e);
+    } finally {
+      this.pregenStarting.delete(id);
+    }
+  }
+
+  /** Pre-generation progress from the server log. */
+  async pregenStatus(id: string) {
+    const s = this.get(id);
+    let progress = null;
+    if (await this.docker.isRunning(id)) {
+      progress = parseChunkyProgress(await this.docker.logTail(id, 400).catch(() => ""));
+      if (progress?.state === "finished" && s.pregen && s.pregen.state !== "done") this.store.updateServer(id, (x) => x.pregen && (x.pregen.state = "done"));
+      if (progress?.state === "running" && s.pregen?.state === "pending") this.store.updateServer(id, (x) => x.pregen && (x.pregen.state = "running"));
+    }
+    return { pregen: s.pregen ?? null, progress };
+  }
+
+  // ---- Storage ----
+
+  /** Move a stopped server to another disk in the background. */
+  async moveServer(id: string, to: string) {
+    const s = this.get(id);
+    if (this.moves.get(id)?.state === "copying") throw new HttpError(409, "move_in_progress");
+    if (this.busy.has(id) || (await this.docker.isRunning(id))) throw new HttpError(409, "server_must_be_stopped");
+    const base = await prepareBase(to);
+    if (sameBase(base, s.storage)) return { job: null };
+    const job: CopyJob = { state: "copying", copied: 0, total: 0 };
+    const from = serverDir(id);
+    const dest = path.join(base, "servers", id);
+    this.busy.add(id);
+    try {
+      const run = await startMove(from, dest, job, () => {
+        this.store.updateServer(id, (x) => (x.storage = sameBase(base, DATA_DIR) ? undefined : base));
+      });
+      this.moves.set(id, job);
+      void run.done.finally(() => this.busy.delete(id));
+    } catch (e) {
+      this.busy.delete(id);
+      throw e;
+    }
+    return { job };
+  }
+
+  /** Move all backups to another disk in the background. */
+  async moveBackups(to: string) {
+    if (this.moves.get("backups")?.state === "copying") throw new HttpError(409, "move_in_progress");
+    const base = await prepareBase(to);
+    if (sameBase(base, this.store.settings.backupsStorage)) return { job: null };
+    const job: CopyJob = { state: "copying", copied: 0, total: 0 };
+    const from = path.dirname(backupDir("x"));
+    const run = await startMove(from, path.join(base, "backups"), job, () => {
+      this.store.settings.backupsStorage = sameBase(base, DATA_DIR) ? undefined : base;
+      this.store.save();
+    });
+    this.moves.set("backups", job);
+    void run.done;
+    return { job };
   }
 
   view(s: ServerConfig) {
@@ -373,6 +485,8 @@ export class Servers {
       containerMemoryMB: containerMemoryMB(s.memoryMB),
       address: this.address(s),
       services: this.services(s),
+      storagePath: s.storage ?? DATA_DIR,
+      move: this.moves.get(s.id) ?? null,
     };
   }
 
@@ -411,7 +525,12 @@ export class Servers {
       (acc, l) => ({ memoryMB: acc.memoryMB + (l.stats?.memoryMB ?? 0), cpuPercent: acc.cpuPercent + (l.stats?.cpuPercent ?? 0) }),
       { memoryMB: 0, cpuPercent: 0 },
     );
-    const disk = await dirSizeCached();
+    // The data folder plus servers and backups kept on other disks.
+    const outside = (p: string) => path.relative(DATA_DIR, p).startsWith("..");
+    const dirs = [DATA_DIR, ...this.store.servers.map((s) => serverDir(s.id)).filter(outside)];
+    const bk = path.dirname(backupDir("x"));
+    if (outside(bk)) dirs.push(bk);
+    const disk = await dirSizeCached(dirs);
     return { limits: this.store.settings.limits, reserved: reserved(running), used, diskBytes: disk };
   }
 
@@ -515,8 +634,10 @@ export class Servers {
 }
 
 let diskCache: { at: number; bytes: number } | undefined;
-async function dirSizeCached() {
+async function dirSizeCached(dirs: string[]) {
   if (diskCache && Date.now() - diskCache.at < 60_000) return diskCache.bytes;
-  diskCache = { at: Date.now(), bytes: await dirSize(DATA_DIR) };
+  let bytes = 0;
+  for (const d of dirs) bytes += await dirSize(d).catch(() => 0);
+  diskCache = { at: Date.now(), bytes };
   return diskCache.bytes;
 }

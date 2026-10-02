@@ -166,7 +166,8 @@
       "medium": "Medium",
       "large": "Large"
     },
-    "overBudget": "Together with your other running servers this is more than your limit of {{limit}}. That works as long as they aren't all busy at once."
+    "overBudget": "Together with your other running servers this is more than your limit of {{limit}}. That works as long as they aren't all busy at once.",
+    "stepWorld": "World"
   },
   "tabs": {
     "label": "Server sections",
@@ -229,6 +230,24 @@
       "seed": "Show the world seed",
       "save": "Save the world now",
       "stop": "Stop the server"
+    },
+    "chunkyTitle": "Chunky (world pre-generation)",
+    "chunkyHint": "Set the area first (radius, center, shape), then start.",
+    "chunky": {
+      "start": "Start generating the selected area",
+      "pause": "Pause, keeps the progress",
+      "continue": "Continue a paused task",
+      "cancel": "Stop the task (then confirm)",
+      "progress": "Show how far it is",
+      "radius": "Set the radius in blocks",
+      "center": "Set the center (x z)",
+      "spawn": "Center on the world spawn",
+      "world": "Choose the world",
+      "shape": "Shape: square or circle",
+      "selection": "Show the current settings",
+      "trim": "Delete chunks outside the area (then confirm)",
+      "confirm": "Confirm cancel or trim",
+      "help": "List all Chunky commands"
     }
   },
   "plugins": {
@@ -516,7 +535,15 @@
     "playit_no_claim": "Start connecting playit.gg first.",
     "playit_not_connected": "Connect playit.gg first.",
     "invalid_ip": "That isn't a valid IPv4 address.",
-    "invalid_max_players": "Choose a maximum number of players between 1 and 500."
+    "invalid_max_players": "Choose a maximum number of players between 1 and 500.",
+    "storage_not_writable": "ZimaMC can't write to {{path}}. Pick another folder; on ZimaOS it must be under /DATA or /media.",
+    "server_must_be_stopped": "Stop the server first.",
+    "move_in_progress": "A move is already running.",
+    "not_enough_space": "There is not enough free space on that disk.",
+    "target_exists": "There is already a server folder at {{path}}.",
+    "move_failed": "Copying the files failed.",
+    "invalid_radius": "Choose a radius between 100 and 30,000 blocks.",
+    "chunky_install_failed": "Modrinth could not be reached."
   },
   "details": {
     "about": "Description",
@@ -556,5 +583,74 @@
   "windows": {
     "getDocker": "Get Docker Desktop",
     "stayOn": "ZimaMC is running on this PC: your servers are only online while it is switched on and awake. Docker Desktop has to be running."
+  },
+  "storage": {
+    "where": "Where to store it",
+    "default": "ZimaMC folder",
+    "free": "{{free}} free of {{total}}",
+    "tooSmall": "Not enough free space",
+    "mountHint": "Only ZimaMC's own folder is available. On ZimaOS, re-import ZimaMC with the latest docker-compose.yml so your other drives (/media) and /DATA show up here.",
+    "customTitle": "Another folder",
+    "customPlaceholder": "/DATA/Games or D:\\Minecraft",
+    "check": "Use this folder",
+    "customHint": "ZimaMC creates a ZimaMC folder inside. On ZimaOS the folder must be under /DATA or /media.",
+    "title": "Storage",
+    "move": "Move to another disk",
+    "moveHint": "Moving copies the world, plugins and settings, then deletes the old copy.",
+    "stopFirst": "Stop the server to move it.",
+    "moveTitle": "Move {{name}}",
+    "moveText": "This can take a while for big worlds. The server can't start until it's done.",
+    "moveConfirm": "Move",
+    "moving": "Moving… {{copied}} of {{total}}",
+    "moveDone": "Moved.",
+    "moveFailed": "Moving failed, nothing was changed: {{reason}}",
+    "backupsTitle": "Where backups are kept",
+    "backupsText": "Keeping backups on a different disk than your worlds protects them if a disk fails. Existing backups are moved too.",
+    "moveBackups": "Move backups here"
+  },
+  "chunky": {
+    "title": "Pre-generate the world?",
+    "text": "Chunky creates the land around spawn ahead of time. Without it, the server builds new land while players explore, which is what makes servers lag. It runs once in the background, and you can play while it works.",
+    "yes": "Yes, install Chunky",
+    "yesText": "Smooth exploring from day one. Takes some time and disk space once.",
+    "no": "No, thanks",
+    "noText": "The world is created as players explore. You can add Chunky later.",
+    "calculating": "Calculating…",
+    "blocks": "{{radius}} blocks",
+    "area": "Area of {{size}} × {{size}} blocks",
+    "estimate": "{{size}} · about {{time}}",
+    "recommended": "Recommended",
+    "noSpace": "Not enough free space",
+    "custom": "Or your own radius in blocks",
+    "customPlaceholder": "e.g. 3000",
+    "summary": "{{chunks}} chunks: about {{size}} on disk ({{free}} free) and {{time}} of generating.",
+    "estimateHint": "Estimated from a quick test of this machine. Real times vary with the version, mods and what else is running.",
+    "installFailed": "The server was created, but Chunky could not be installed. {{reason}} You can add it on the Plugins or Mods page."
+  },
+  "time": {
+    "underMinute": "under a minute",
+    "minutes_one": "{{count}} min",
+    "minutes_other": "{{count}} min",
+    "hours": "{{h}} h {{m}} min"
+  },
+  "pregen": {
+    "title": "World pre-generation",
+    "waiting": "Chunky will generate {{radius}} blocks around spawn when the server starts.",
+    "starting": "Starting Chunky…",
+    "running": "Generating {{radius}} blocks around spawn…",
+    "offline": "Paused while the server is offline. Chunky continues when it starts.",
+    "progress": "{{percent}} % · {{chunks}} chunks",
+    "eta": "{{eta}} left",
+    "rate": "{{rate}} chunks/s",
+    "paused": "Paused.",
+    "cancelled": "Cancelled.",
+    "done": "Done: {{radius}} blocks around spawn are ready.",
+    "failed": "Chunky didn't start. Check that it is installed on the Plugins or Mods page, then start it in the console with “chunky start”.",
+    "hint": "Players can join while it runs.",
+    "pause": "Pause",
+    "continue": "Continue",
+    "cancel": "Cancel",
+    "cancelTitle": "Cancel pre-generation?",
+    "cancelText": "Land generated so far stays. You can start again later from the console."
   }
 }

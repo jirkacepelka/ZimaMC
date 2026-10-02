@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
 import { del, formatMB, get, patch, type Properties, type Server } from "../../api";
 import { PortsEditor } from "../../components/PortsEditor";
+import { StoragePanel } from "../../components/StoragePanel";
 import { Confirm, Expert, useAction, useApp, useToast } from "../../ui";
 import type { ServerTabProps } from "../ServerPage";
 
@@ -133,6 +134,8 @@ export default function Settings({ server, reload }: ServerTabProps) {
         </label>
         <p className="hint">{t("settings.performanceHint")}</p>
       </div>
+
+      <StoragePanel server={server} reload={reload} />
 
       <Expert>
         <div className="grid2">

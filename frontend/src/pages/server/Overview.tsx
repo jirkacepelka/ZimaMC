@@ -2,6 +2,7 @@ import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
 import { formatMB } from "../../api";
 import { CopyAddress, Meter } from "../../ui";
+import { PregenPanel } from "../../components/PregenPanel";
 import type { ServerTabProps } from "../ServerPage";
 
 export default function Overview({ server: s }: ServerTabProps) {
@@ -92,6 +93,8 @@ export default function Overview({ server: s }: ServerTabProps) {
           <p className="muted">{t("overview.noPlayers")}</p>
         )}
       </div>
+
+      <PregenPanel server={s} />
 
       <div className="panel">
         <dl className="kv">

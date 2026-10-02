@@ -1,10 +1,10 @@
 import fs from "node:fs";
 import fsp from "node:fs/promises";
 import path from "node:path";
-import { MC_GID, MC_UID, SERVERS_DIR } from "./config.js";
+import { MC_GID, MC_UID } from "./config.js";
 import { HttpError } from "./store.js";
 
-export const serverDir = (id: string) => path.join(SERVERS_DIR, id);
+export { serverDir } from "./paths.js";
 
 /**
  * Resolve a user-supplied relative path inside a root directory.

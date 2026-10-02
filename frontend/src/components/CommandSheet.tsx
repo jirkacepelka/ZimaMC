@@ -10,6 +10,8 @@ interface Live {
 interface Data {
   plugins: { name: string; commands: CommandInfo[] }[];
   live: Live[] | null;
+  /** Add-ons with their own section below, e.g. "chunky". */
+  known?: string[];
 }
 
 /** Everyday commands every Minecraft server knows. The texts live in the language files under console.basic. */
@@ -32,6 +34,24 @@ const BASIC: [string, string][] = [
   ["stop", "stop"],
 ];
 
+/** Chunky, the world pre-generator: set the area first (radius, center, shape), then start. */
+const CHUNKY: [string, string][] = [
+  ["start", "chunky start"],
+  ["pause", "chunky pause"],
+  ["continue", "chunky continue"],
+  ["cancel", "chunky cancel"],
+  ["progress", "chunky progress"],
+  ["radius", "chunky radius 2500"],
+  ["center", "chunky center 0 0"],
+  ["spawn", "chunky spawn"],
+  ["world", "chunky world world"],
+  ["shape", "chunky shape circle"],
+  ["selection", "chunky selection"],
+  ["trim", "chunky trim"],
+  ["confirm", "chunky confirm"],
+  ["help", "chunky help"],
+];
+
 export default function CommandSheet({ serverId, online, onPick, onClose }: { serverId: string; online: boolean; onPick: (cmd: string) => void; onClose: () => void }) {
   const { t } = useTranslation();
   const [data, setData] = useState<Data | null>(null);
@@ -41,7 +61,7 @@ export default function CommandSheet({ serverId, online, onPick, onClose }: { se
   useEffect(() => {
     get<Data>(`/api/servers/${serverId}/commands`)
       .then(setData)
-      .catch(() => setData({ plugins: [], live: null }))
+      .catch(() => setData({ plugins: [], live: null, known: [] }))
       .finally(() => setLoading(false));
   }, [serverId]);
 
@@ -59,6 +79,7 @@ export default function CommandSheet({ serverId, online, onPick, onClose }: { se
     [data, needle],
   );
   const live = (data?.live ?? []).filter((c) => match(c.usage, c.description));
+  const chunky = data?.known?.includes("chunky") ? CHUNKY.filter(([k, ex]) => match(k, ex, t(`console.chunky.${k}`))) : [];
 
   const row = (key: string, cmd: string, label: string, desc?: string, extra?: string) => (
     <button key={key} className="cmd-row" onClick={() => onPick(cmd)} title={t("console.insert")}>
@@ -74,6 +95,14 @@ export default function CommandSheet({ serverId, online, onPick, onClose }: { se
         <input type="search" autoFocus placeholder={t("console.cheatSearch")} value={q} onChange={(e) => setQ(e.target.value)} />
         <p className="hint">{t("console.cheatHint")}</p>
 
+        {chunky.length > 0 && (
+          <section className="stack-sm">
+            <h3>{t("console.chunkyTitle")}</h3>
+            <p className="hint">{t("console.chunkyHint")}</p>
+            <div className="cmd-list">{chunky.map(([k, ex]) => row(`chunky-${k}`, ex, `/${ex}`, t(`console.chunky.${k}`)))}</div>
+          </section>
+        )}
+
         {basic.length > 0 && (
           <section className="stack-sm">
             <h3>{t("console.cheatBasic")}</h3>
@@ -81,7 +110,7 @@ export default function CommandSheet({ serverId, online, onPick, onClose }: { se
           </section>
         )}
 
-        {plugins.map((p) => (
+        {plugins.filter((p) => !(chunky.length > 0 && p.name.toLowerCase() === "chunky")).map((p) => (
           <section key={p.name} className="stack-sm">
             <h3>{p.name}</h3>
             <div className="cmd-list">

@@ -66,6 +66,10 @@ export interface Server {
   address: { lan?: string; public?: string; domain?: string; tunnel?: string };
   extraPorts?: ExtraPort[];
   services: (ExtraPort & { kind: "web" | "game" | "other"; url?: string; address: string })[];
+  /** Storage base the server lives in. */
+  storagePath: string;
+  move: { state: "copying" | "done" | "failed"; copied: number; total: number; error?: string } | null;
+  pregen?: { radius: number; state: "pending" | "running" | "done" | "failed"; error?: string };
 }
 
 export interface SystemInfo {

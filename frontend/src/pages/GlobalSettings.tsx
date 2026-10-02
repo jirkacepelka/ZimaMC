@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { formatMB, post, put } from "../api";
 import { LimitsEditor } from "../components/LimitsEditor";
+import { BackupsStoragePanel } from "../components/StoragePanel";
 import { Expert, useAction, useApp } from "../ui";
 
 export default function GlobalSettings() {
@@ -42,6 +43,8 @@ export default function GlobalSettings() {
           </button>
         </div>
       </div>
+
+      <BackupsStoragePanel />
 
       <div className="panel stack">
         <h2>{t("global.networkTitle")}</h2>

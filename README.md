@@ -10,6 +10,8 @@ ZimaMC is a web app for [ZimaOS](https://www.zimaspace.com/) (and CasaOS), and a
 
 - **One-click servers**: Paper and Folia (plugins), Vanilla, Fabric and Forge (mods). Several servers at once.
 - **Performance limits**: every server gets its own memory and CPU limit, and you set a global limit that no single server can exceed, so Minecraft never takes over the whole machine. The limits of running servers may add up to more than the global limit, since servers rarely use everything at once.
+- **Any disk**: choose where each server lives (other drives on ZimaOS, other drive letters on Windows, or any folder), move a server later, and keep backups on a different disk.
+- **World pre-generation with [Chunky](https://modrinth.com/plugin/chunky)**: the wizard offers it for plugin and mod servers and estimates disk space and time from a quick, silent benchmark of your machine. Progress, pause and cancel are on the server's overview, and the console cheat sheet lists Chunky's commands.
 - **Plugins and mods from [Modrinth](https://modrinth.com)**: search, install with dependencies, update and remove. Only versions compatible with your server are shown.
 - **Let friends join**, in three levels:
   1. Your public address, with automatic router port opening (UPnP / NAT-PMP) and a connection test.
@@ -35,6 +37,8 @@ Keep the window open while you use ZimaMC; closing it only stops the web page, y
 1. Open the **App Store** in ZimaOS and click **+** → **Install a customized app**.
 2. Choose **Import**, paste the contents of [`docker-compose.yml`](docker-compose.yml) and install.
 3. Open ZimaMC from the dashboard (port **8765**), choose a password and a performance limit, and create your first server.
+
+Already installed an older version? Import the new `docker-compose.yml` once more (your data stays): it now also mounts `/DATA` and `/media`, so you can put servers on other drives.
 
 The app needs access to `/var/run/docker.sock` so it can start the Minecraft servers as separate containers ([`itzg/minecraft-server`](https://github.com/itzg/docker-minecraft-server)). All data lives in `/DATA/AppData/zimamc`.
 
@@ -73,6 +77,7 @@ Docker must be running locally. By default data goes to `./data`; set `DATA_DIR`
 | `HOST_DATA_DIR` | `DATA_DIR` | The same folder as the Docker host sees it (only needed if the paths differ) |
 | `MC_IMAGE` | `itzg/minecraft-server` | Image used for servers |
 | `HOST` | `0.0.0.0` (`127.0.0.1` on Windows) | Address the web UI listens on |
+| `STORAGE_ROOTS` | – | Extra folders (comma-separated) to offer as disks |
 | `RESET_PASSWORD` | – | `true` removes the password on start (or start with `--reset-password`) |
 
 ## License
