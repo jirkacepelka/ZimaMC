@@ -693,5 +693,8 @@
     "cancel": "Cancel",
     "cancelTitle": "Cancel pre-generation?",
     "cancelText": "Land generated so far stays. You can start again later from the console."
+  },
+  "problems": {
+    "port_in_use": "Port {{port}} is used by another program, for example another Minecraft server or Docker Desktop running servers of an older ZimaMC. Close it, or choose another port in the server settings."
   }
 }

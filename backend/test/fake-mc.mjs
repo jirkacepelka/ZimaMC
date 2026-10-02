@@ -13,6 +13,15 @@ const props = Object.fromEntries(
 );
 fs.writeFileSync("args.json", JSON.stringify(process.argv.slice(2)));
 
+// Failures of a real server, chosen by the test through the server's environment.
+if (process.env.FAKE_MC_MODE === "bind_fail") {
+  // Paper starts creating the world, can't bind the game port, writes a crash report and exits with 0.
+  fs.mkdirSync("world/dimensions", { recursive: true });
+  console.log("[Server thread/WARN]: **** FAILED TO BIND TO PORT!");
+  console.log("[Server thread/ERROR]: This crash report has been saved to: crash-reports/crash.txt");
+  process.exit(0);
+}
+
 function stop(code = 0) {
   console.log("[Server thread/INFO]: Stopping server");
   process.exit(code);

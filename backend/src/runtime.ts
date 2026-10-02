@@ -43,6 +43,8 @@ export interface Runtime {
   agentRunning(): Promise<boolean>;
   removeAgent(): Promise<void>;
 
+  /** Why the last start failed, when known (an error code the interface translates). */
+  problem?(id: string): { code: string; params?: Record<string, unknown> } | undefined;
   /** After a restart of ZimaMC: deal with servers left running by the previous run. */
   recover?(servers: ServerConfig[]): Promise<void>;
   /** Stop everything cleanly, e.g. when the desktop app quits. */

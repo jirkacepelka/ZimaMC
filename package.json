@@ -1,6 +1,6 @@
 {
   "name": "zimamc",
-  "version": "0.11.0",
+  "version": "0.11.1",
   "private": true,
   "description": "The simplest way to run Minecraft servers on ZimaOS and Windows",
   "license": "MIT",

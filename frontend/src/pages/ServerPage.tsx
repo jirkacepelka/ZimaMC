@@ -79,7 +79,14 @@ export default function ServerPage() {
           </button>
         )}
       </div>
-      {server.status === "crashed" && (
+      {server.problem && (server.status === "crashed" || server.status === "offline") ? (
+        <div className="notice error">
+          {t(`problems.${server.problem.code}`, { ...server.problem.params, defaultValue: t("server.crashed") })}{" "}
+          <button className="link" onClick={() => nav(`/servers/${id}/console`)}>
+            {t("server.openConsole")}
+          </button>
+        </div>
+      ) : server.status === "crashed" && (
         <div className="notice error">
           {t("server.crashed")}{" "}
           <button className="link" onClick={() => nav(`/servers/${id}/console`)}>

@@ -10,13 +10,14 @@ import { DATA_DIR } from "../config.js";
 import { plainText } from "../minecraft.js";
 import { serverDir } from "../paths.js";
 import { ping } from "../ping.js";
+import { portFree } from "../ports.js";
 import { containerMemoryMB } from "../resources.js";
 import type { Runtime, ServerStats, ServerStatus } from "../runtime.js";
 import { HttpError, type ServerConfig } from "../store.js";
 import { downloadTo } from "./download.js";
 import { ensureJava, javaMajorFor, RUNTIME_DIR } from "./java.js";
 import { ProcStats } from "./procstats.js";
-import { managedProperties, writeServerFiles } from "./properties.js";
+import { managedProperties, readProperty, writeServerFiles } from "./properties.js";
 import { RconClient } from "./rcon.js";
 import { installServer, type InstallContext } from "./software.js";
 
@@ -76,6 +77,25 @@ interface Proc {
   restarts: number;
   cpu?: { ms: number; at: number };
   exited: Promise<void>;
+  /** The server said it failed (Paper exits with code 0 after a crash report). */
+  failed: boolean;
+  reachedOnline: boolean;
+  /** World folders this start is creating; removed again if it never finishes starting. */
+  newWorldDirs: string[];
+}
+
+/** "**** FAILED TO BIND TO PORT!" — another program uses the game port. */
+const BIND_FAILED = /FAILED TO BIND TO PORT/i;
+/** Fatal errors after which the server exits, sometimes with code 0. */
+const CRASHED = /This crash report has been saved to|Encountered an unexpected exception|Failed to start the minecraft server/i;
+
+/** World folders of a server (level-name, plus the separate Nether and End of older versions). */
+export async function worldDirs(dir: string) {
+  const props = await fsp.readFile(path.join(dir, "server.properties"), "utf8").catch(() => "");
+  const name = (readProperty(props, "level-name") || "world").trim();
+  // Only plain names inside the server folder.
+  if (!/^[\w .-]+$/.test(name) || name.startsWith(".")) return [];
+  return [name, `${name}_nether`, `${name}_the_end`].map((n) => path.join(dir, n));
 }
 
 /** Java options for a server: heap, UTF-8 console, Aikar's flags for Paper, then the user's own. */
@@ -95,14 +115,6 @@ export function jvmArgs(s: Pick<ServerConfig, "memoryMB" | "type" | "advanced">)
 
 export function splitArgs(s: string) {
   return (s.match(/(?:[^\s"]+|"[^"]*")+/g) ?? []).map((a) => a.replace(/"/g, ""));
-}
-
-function portFree(port: number) {
-  return new Promise<boolean>((resolve) => {
-    const srv = net.createServer();
-    srv.once("error", () => resolve(false));
-    srv.listen(port, "0.0.0.0", () => srv.close(() => resolve(true)));
-  });
 }
 
 function freePort() {
@@ -157,6 +169,8 @@ export class NativeRuntime implements Runtime {
   private listeners = new Map<string, Set<(line: string) => void>>();
   /** Console output of the current start, also on disk (for crashes before the server writes its own log). */
   private consoleFiles = new Map<string, fs.WriteStream>();
+  /** Why the last start failed, for the interface (an error code and its parameters). */
+  private problems = new Map<string, { code: string; params?: Record<string, unknown> }>();
   private stats_ = new ProcStats();
   private agent?: ChildProcess;
   private runDir: string;
@@ -244,8 +258,17 @@ export class NativeRuntime implements Runtime {
     }
   }
 
+  problem(id: string) {
+    return this.problems.get(id);
+  }
+
   private async prepareAndLaunch(s: ServerConfig) {
-    if (!(await portFree(s.port))) throw new HttpError(409, "port_in_use", { port: s.port });
+    this.problems.delete(s.id);
+    if (!(await portFree(s.port))) {
+      this.problems.set(s.id, { code: "port_in_use", params: { port: s.port } });
+      this.emit(s.id, `[ZimaMC] Port ${s.port} is used by another program (another Minecraft server, or Docker Desktop with servers of an older ZimaMC). Close it, or choose another port in Settings.`);
+      throw new HttpError(409, "port_in_use", { port: s.port });
+    }
     const dir = serverDir(s.id);
     await fsp.mkdir(path.join(dir, "logs"), { recursive: true });
     this.consoleFiles.get(s.id)?.end();
@@ -279,6 +302,7 @@ export class NativeRuntime implements Runtime {
     const dir = serverDir(s.id);
     const rconInfo = { port: await freePort(), password: crypto.randomBytes(18).toString("base64url") };
     await writeServerFiles(dir, managedProperties(s, rconInfo));
+    const newWorldDirs = (await worldDirs(dir)).filter((d) => !fs.existsSync(d));
 
     const jvm = jvmArgs(s);
     const env: NodeJS.ProcessEnv = { ...process.env };
@@ -302,6 +326,9 @@ export class NativeRuntime implements Runtime {
       lastPing: 0,
       restarts,
       exited: new Promise<void>((r) => (resolveExit = r)),
+      failed: false,
+      reachedOnline: false,
+      newWorldDirs,
     };
     this.procs.set(s.id, p);
     await fsp.mkdir(this.runDir, { recursive: true });
@@ -314,7 +341,15 @@ export class NativeRuntime implements Runtime {
       partial = lines.pop() ?? "";
       for (const line of lines) {
         this.emit(s.id, line);
-        if (p.status === "starting" && DONE.test(plainText(line))) p.status = "online";
+        const text = plainText(line);
+        if (p.status === "starting" && DONE.test(text)) {
+          p.status = "online";
+          p.reachedOnline = true;
+        }
+        if (BIND_FAILED.test(text) && !this.problems.has(s.id)) {
+          p.failed = true;
+          this.problems.set(s.id, { code: "port_in_use", params: { port: s.port } });
+        } else if (CRASHED.test(text)) p.failed = true;
       }
     };
     child.stdout!.on("data", onData);
@@ -324,10 +359,24 @@ export class NativeRuntime implements Runtime {
       if (partial) this.emit(s.id, partial);
       p.rcon.end();
       fs.rmSync(path.join(this.runDir, `${s.id}.json`), { force: true });
-      const clean = p.stopping || code === 0;
+      const clean = p.stopping || (code === 0 && !p.failed);
       p.status = clean ? "offline" : "crashed";
+      // A world that never finished being created can't be loaded later ("Overworld settings missing"): start it over.
+      if (!p.reachedOnline && p.newWorldDirs.some((d) => fs.existsSync(d))) {
+        for (const d of p.newWorldDirs) fs.rmSync(d, { recursive: true, force: true });
+        this.emit(s.id, "[ZimaMC] The new world was not finished, so it was removed. The next start creates it again.");
+      }
       resolveExit();
       if (clean) return;
+      const problem = this.problems.get(s.id);
+      if (problem?.code === "port_in_use") {
+        // Starting again would fail the same way.
+        this.emit(
+          s.id,
+          `[ZimaMC] Port ${s.port} is used by another program (another Minecraft server, or Docker Desktop with servers of an older ZimaMC). Close it, or choose another port in Settings.`,
+        );
+        return;
+      }
       this.emit(s.id, `[ZimaMC] The server stopped unexpectedly (exit code ${code}).`);
       if (p.restarts < MAX_RESTARTS && this.procs.get(s.id) === p) {
         this.emit(s.id, `[ZimaMC] Starting it again (${p.restarts + 1}/${MAX_RESTARTS})…`);

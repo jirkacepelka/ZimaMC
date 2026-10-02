@@ -1,7 +1,7 @@
 {
   "name": "zimamc-desktop",
   "productName": "ZimaMC",
-  "version": "0.11.0",
+  "version": "0.11.1",
   "private": true,
   "description": "ZimaMC: Minecraft servers on your PC",
   "author": "ZimaMC",

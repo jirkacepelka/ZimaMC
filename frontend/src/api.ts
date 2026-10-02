@@ -60,6 +60,8 @@ export interface Server {
   tunnel?: { tunnelId: string; address?: string };
   status: ServerStatus;
   downloadProgress?: number;
+  /** Why the last start failed, when ZimaMC knows (an errors.* key and its parameters). */
+  problem: { code: string; params?: Record<string, unknown> } | null;
   stats: { cpuPercent: number; memoryMB: number; memoryLimitMB: number } | null;
   players: { online: number; max: number; names: string[] };
   containerMemoryMB: number;

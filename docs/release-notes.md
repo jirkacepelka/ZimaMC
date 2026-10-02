@@ -1,3 +1,13 @@
+## ZimaMC 0.11.1
+
+**Fixed (Windows)**
+- A port held by another program (for example Docker Desktop still running servers of an older ZimaMC) is now found before the server starts, also when the program holds it only on IPv6. The server page says which port and what to do, instead of the server just stopping.
+- When a brand-new world can't be finished (the server fails during its first start), ZimaMC removes the half-created world, so the next start doesn't fail with "Overworld settings missing". Existing worlds are never touched.
+
+If you already have a server that fails with "Overworld settings missing": open its Files tab, delete the `world` folder and start it again.
+
+Installed 0.11.0 apps update to this version by themselves.
+
 ## ZimaMC 0.11
 
 **ZimaMC for Windows is now a regular app.** Download **`ZimaMC-Setup-0.11.0.exe`** below and run it. Docker and the terminal are no longer needed: ZimaMC downloads Java and the server software itself and runs your servers as normal programs. Windows may show a "protected your PC" message because the installer is not code-signed yet: choose **More info → Run anyway**.

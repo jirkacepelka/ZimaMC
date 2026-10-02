@@ -1,4 +1,5 @@
 import fs from "node:fs";
+import net from "node:net";
 import os from "node:os";
 import path from "node:path";
 import { afterAll, describe, expect, it } from "vitest";
@@ -115,6 +116,47 @@ describe.skipIf(process.platform === "win32")("native runtime", () => {
     await until(async () => (await rt.status(s.id)) === "online", 15_000);
     await rt.remove(s.id);
   }, 20_000);
+
+  it("finds a port taken only on IPv6", async (ctx) => {
+    const s = server();
+    const blocker = net.createServer();
+    const ok = await new Promise<boolean>((resolve) => {
+      blocker.once("error", () => resolve(false));
+      blocker.listen({ port: s.port, host: "::", ipv6Only: true }, () => resolve(true));
+    });
+    if (!ok) return ctx.skip(); // no IPv6 here
+    try {
+      await expect(rt.start(s)).rejects.toMatchObject({ code: "port_in_use" });
+      expect(rt.problem(s.id)).toEqual({ code: "port_in_use", params: { port: s.port } });
+    } finally {
+      blocker.close();
+    }
+  });
+
+  it("explains a port another program took, removes the unfinished world and does not retry", async () => {
+    const s = server({ advanced: { extraEnv: { FAKE_MC_MODE: "bind_fail" } } });
+    await rt.start(s);
+    await until(async () => (await rt.status(s.id)) === "crashed");
+    expect(rt.problem(s.id)).toEqual({ code: "port_in_use", params: { port: s.port } });
+    const log = await rt.logTail(s.id, 30);
+    expect(log).toContain("is used by another program");
+    expect(log).toContain("new world was not finished");
+    expect(log).not.toContain("Starting it again");
+    expect(fs.existsSync(path.join(serverDir(s.id), "world"))).toBe(false);
+    await rt.remove(s.id);
+  });
+
+  it("never removes a world that existed before", async () => {
+    const s = server({ advanced: { extraEnv: { FAKE_MC_MODE: "bind_fail" } } });
+    const world = path.join(serverDir(s.id), "world");
+    fs.mkdirSync(world, { recursive: true });
+    fs.writeFileSync(path.join(world, "level.dat"), "old");
+    await rt.start(s);
+    await until(async () => (await rt.status(s.id)) === "crashed");
+    expect(fs.readFileSync(path.join(world, "level.dat"), "utf8")).toBe("old");
+    expect(await rt.logTail(s.id, 30)).not.toContain("new world was not finished");
+    await rt.remove(s.id);
+  });
 
   it("stops servers left running by a previous run", async () => {
     const runDir = path.join(tmp, "run-old");

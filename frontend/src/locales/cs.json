@@ -730,5 +730,8 @@
     "cancel": "Zrušit",
     "cancelTitle": "Zrušit předgenerování?",
     "cancelText": "Dosud vygenerovaná krajina zůstane. Později ho můžeš znovu spustit z konzole."
+  },
+  "problems": {
+    "port_in_use": "Port {{port}} používá jiný program, třeba jiný Minecraft server nebo Docker Desktop se servery ze starší verze ZimaMC. Zavři ho, nebo změň port v Nastavení serveru."
   }
 }

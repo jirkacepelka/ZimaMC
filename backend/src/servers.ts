@@ -1,7 +1,5 @@
 import crypto from "node:crypto";
 import fsp from "node:fs/promises";
-import dgram from "node:dgram";
-import net from "node:net";
 import path from "node:path";
 import { DATA_DIR } from "./config.js";
 import type { Runtime, ServerStats, ServerStatus } from "./runtime.js";
@@ -13,6 +11,7 @@ import { lanIp, publicIp } from "./network/ip.js";
 import type { Playit } from "./network/playit.js";
 import { closePort, openPort } from "./network/upnp.js";
 import type { Players } from "./players.js";
+import { portFree } from "./ports.js";
 import { assertServerLimits, containerMemoryMB, effectiveCpus, reserved } from "./resources.js";
 import { detectServices, serviceById } from "./services.js";
 import { HttpError, type ExtraPort, type ServerConfig, type ServerType, type Store } from "./store.js";
@@ -47,20 +46,6 @@ export interface CreateServerInput {
 
 /** Modrinth project of Chunky, the world pre-generator (plugin and mod). */
 export const CHUNKY_PROJECT = "chunky";
-
-function portFree(port: number, protocol: "tcp" | "udp" = "tcp") {
-  return new Promise<boolean>((resolve) => {
-    if (protocol === "udp") {
-      const sock = dgram.createSocket("udp4");
-      sock.once("error", () => resolve(false));
-      sock.bind(port, "0.0.0.0", () => sock.close(() => resolve(true)));
-      return;
-    }
-    const srv = net.createServer();
-    srv.once("error", () => resolve(false));
-    srv.listen(port, "0.0.0.0", () => srv.close(() => resolve(true)));
-  });
-}
 
 /** Ports and protocols already given out to servers, as "tcp:25565". */
 function takenPorts(servers: ServerConfig[], except?: { id: string; keep: ExtraPort[] }) {
@@ -508,6 +493,7 @@ export class Servers {
       ...s,
       status: this.runtime.pulling.has(s.id) ? "downloading" : (live?.status ?? "offline"),
       downloadProgress: this.runtime.pulling.get(s.id),
+      problem: this.runtime.problem?.(s.id) ?? null,
       stats: live?.stats ?? null,
       players: live?.players ?? { online: 0, max: s.properties.maxPlayers, names: [] },
       containerMemoryMB: containerMemoryMB(s.memoryMB),
