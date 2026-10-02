@@ -52,7 +52,7 @@
   "login": {
     "title": "Přihlášení",
     "submit": "Přihlásit",
-    "forgot": "Zapomněl jsi heslo? V ZimaOS otevři nastavení této aplikace, přidej proměnnou RESET_PASSWORD=true a aplikaci restartuj. Ve Windows spusť ZimaMC.exe z terminálu s parametrem --reset-password. Pak si zvolíš nové heslo (potom spouštěj normálně)."
+    "forgot": "Zapomněl jsi heslo? Ve Windows klikni pravým tlačítkem na ikonu ZimaMC vedle hodin a vyber Zapomenuté heslo. V ZimaOS otevři nastavení této aplikace, přidej proměnnou RESET_PASSWORD=true a aplikaci restartuj (potom proměnnou zase odeber). Pak si zvolíš nové heslo."
   },
   "limits": {
     "memory": "Paměť (RAM) pro všechny servery",
@@ -498,7 +498,8 @@
     "deleteTitle": "Smazat {{name}}?",
     "deleteText": "Smaže se server, jeho světy i zálohy. Tohle nejde vrátit.",
     "deleteConfirm": "Smazat navždy",
-    "keepFiles": "Nechat soubory světa a záloh na disku"
+    "keepFiles": "Nechat soubory světa a záloh na disku",
+    "propertiesHint": "Další nastavení serveru najdeš v souboru server.properties na kartě Soubory. Pole spravovaná ZimaMC (port, MOTD, hráči…) se při startu přepíšou."
   },
   "global": {
     "title": "Nastavení",
@@ -538,7 +539,7 @@
     "binary_file": "Tohle není textový soubor. Stáhni si ho.",
     "not_found": "Nenalezeno.",
     "bad_request": "Neplatný požadavek.",
-    "docker_unavailable": "ZimaMC se nemůže připojit k Dockeru. Ve Windows nainstaluj a spusť Docker Desktop. V ZimaOS zkontroluj, že má aplikace přístup k /var/run/docker.sock.",
+    "docker_unavailable": "ZimaMC se nemůže připojit k Dockeru. V ZimaOS zkontroluj, že má aplikace přístup k /var/run/docker.sock.",
     "network_error": "Nepodařilo se spojit s {{url}}. Zkontroluj připojení k internetu.",
     "download_failed": "Stahování selhalo. Zkus to později.",
     "versions_unavailable": "Nepodařilo se načíst seznam verzí Minecraftu. Zkontroluj připojení k internetu.",
@@ -584,7 +585,11 @@
     "invalid_radius": "Zvol radius od 100 do 30 000 bloků.",
     "chunky_install_failed": "Modrinth není dostupný.",
     "folder_not_found": "Složka {{path}} neexistuje. Vyber ji přes Procházet… nebo zkontroluj cestu.",
-    "not_mounted": "ZimaMC se k {{path}} nedostane: má přístup jen k /DATA a diskům v /media. V ZimaOS znovu naimportuj ZimaMC s nejnovějším docker-compose.yml, aby se disky připojily."
+    "not_mounted": "ZimaMC se k {{path}} nedostane: má přístup jen k /DATA a diskům v /media. V ZimaOS znovu naimportuj ZimaMC s nejnovějším docker-compose.yml, aby se disky připojily.",
+    "version_unavailable": "Verze {{version}} se pro tenhle typ serveru nedá stáhnout. Vyber jinou v Nastavení.",
+    "forge_install_failed": "Instalace Forge selhala. Podrobnosti najdeš v konzoli.",
+    "java_start_failed": "Javu se nepodařilo spustit. Zkus server spustit znovu.",
+    "java_download_failed": "Javu se nepodařilo stáhnout. Zkontroluj připojení k internetu."
   },
   "details": {
     "about": "Popis",
@@ -644,7 +649,8 @@
   },
   "windows": {
     "getDocker": "Stáhnout Docker Desktop",
-    "stayOn": "ZimaMC běží na tomhle počítači: servery jsou online jen dokud je zapnutý a nespí. Docker Desktop musí běžet."
+    "stayOn": "ZimaMC běží na tomhle počítači: servery jsou online jen dokud je zapnutý a nespí. Docker Desktop musí běžet.",
+    "stayOnApp": "ZimaMC běží na tomhle počítači: servery jsou online, jen dokud je zapnutý a nespí. Po zavření okna běží ZimaMC dál v ikoně u hodin."
   },
   "storage": {
     "where": "Kam ho uložit",

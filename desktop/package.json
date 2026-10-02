@@ -1,0 +1,66 @@
+{
+  "name": "zimamc-desktop",
+  "productName": "ZimaMC",
+  "version": "0.11.0",
+  "private": true,
+  "description": "ZimaMC: Minecraft servers on your PC",
+  "author": "ZimaMC",
+  "license": "MIT",
+  "homepage": "https://github.com/jirkacepelka/ZimaMC",
+  "main": "dist/main.cjs",
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "start": "node scripts/build.mjs && electron .",
+    "dist": "node scripts/build.mjs && electron-builder --win --publish never",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "devDependencies": {
+    "electron": "^44.5.1",
+    "electron-builder": "^26.15.3",
+    "electron-updater": "^6.8.9",
+    "esbuild": "^0.28.2"
+  },
+  "build": {
+    "appId": "io.github.jirkacepelka.zimamc",
+    "productName": "ZimaMC",
+    "copyright": "ZimaMC contributors, MIT license",
+    "directories": {
+      "output": "release",
+      "buildResources": "build"
+    },
+    "files": [
+      "dist/**/*",
+      "package.json"
+    ],
+    "asar": false,
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "build/icon.ico",
+      "artifactName": "ZimaMC-Setup-${version}.${ext}"
+    },
+    "nsis": {
+      "oneClick": true,
+      "perMachine": false,
+      "runAfterFinish": true,
+      "createDesktopShortcut": "always",
+      "createStartMenuShortcut": true,
+      "shortcutName": "ZimaMC",
+      "deleteAppDataOnUninstall": false
+    },
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "jirkacepelka",
+        "repo": "ZimaMC",
+        "releaseType": "release"
+      }
+    ]
+  }
+}

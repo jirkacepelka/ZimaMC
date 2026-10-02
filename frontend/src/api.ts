@@ -75,6 +75,8 @@ export interface Server {
 export interface SystemInfo {
   version: string;
   docker: boolean;
+  /** "native": servers are plain Java processes (desktop app); "docker": containers. */
+  runtime: "docker" | "native";
   platform: string;
   host: { memoryMB: number; cpus: number };
   suggestedLimits: { memoryMB: number; cpus: number };

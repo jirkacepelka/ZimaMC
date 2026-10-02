@@ -10,8 +10,10 @@ import websocket from "@fastify/websocket";
 import Fastify, { type FastifyRequest } from "fastify";
 import { Auth } from "./auth.js";
 import { Backups, backupEntries } from "./backups.js";
-import { VERSION } from "./config.js";
+import { IS_WINDOWS, VERSION } from "./config.js";
 import { DockerManager } from "./docker.js";
+import { NativeRuntime } from "./native/runtime.js";
+import type { Runtime } from "./runtime.js";
 import { Benchmarks, BYTES_PER_CHUNK, chunksPerSecond } from "./benchmark.js";
 import * as content from "./content.js";
 import * as files from "./files.js";
@@ -28,23 +30,31 @@ import { browse as browseFolders, freeBytes, listLocations, prepareBase, spaceOf
 import { HttpError, Store, type ExtraPort, type ServerType } from "./store.js";
 import { listVersions } from "./versions.js";
 
+function defaultRuntime(): Runtime {
+  const kind = process.env.ZIMAMC_RUNTIME ?? (IS_WINDOWS ? "native" : "docker");
+  return kind === "native" ? new NativeRuntime() : new DockerManager();
+}
+
 type IdParams = { Params: { id: string } };
 
 export interface AppDeps {
   store?: Store;
-  docker?: DockerManager;
+  /** Where servers run; by default native on Windows, Docker elsewhere (ZIMAMC_RUNTIME overrides). */
+  runtime?: Runtime;
+  /** Older name of `runtime`, kept for tests. */
+  docker?: Runtime;
   staticDir?: string;
 }
 
 export async function buildApp(deps: AppDeps = {}) {
   const store = deps.store ?? new Store();
-  const docker = deps.docker ?? new DockerManager();
+  const runtime = deps.runtime ?? deps.docker ?? defaultRuntime();
   const auth = new Auth(store);
-  const players = new Players(docker);
-  const playit = new Playit(store, docker);
-  const servers = new Servers(store, docker, players, playit);
+  const players = new Players(runtime);
+  const playit = new Playit(store, runtime);
+  const servers = new Servers(store, runtime, players, playit);
   const benchmarks = new Benchmarks(store);
-  const backups = new Backups(store, docker);
+  const backups = new Backups(store, runtime);
 
   const app = Fastify({ logger: { level: process.env.LOG_LEVEL ?? "warn" }, bodyLimit: 5 * 1024 * 1024 });
   await app.register(cookie);
@@ -86,7 +96,7 @@ export async function buildApp(deps: AppDeps = {}) {
       if (auth.isSetUp) throw new HttpError(409, "already_set_up");
       auth.setPassword(req.body?.password);
       if (req.body.language) store.settings.language = String(req.body.language).slice(0, 10);
-      store.settings.limits = req.body.limits ?? defaultLimits(hostInfo(await docker.info().catch(() => undefined)));
+      store.settings.limits = req.body.limits ?? defaultLimits(hostInfo(await runtime.info().catch(() => undefined)));
       store.save();
       auth.startSession(reply);
       return { ok: true };
@@ -118,12 +128,13 @@ export async function buildApp(deps: AppDeps = {}) {
   // ---- System & settings ----
 
   app.get("/api/system", async () => {
-    const info = await docker.info().catch(() => undefined);
+    const info = await runtime.info().catch(() => undefined);
     const host = hostInfo(info);
     const { auth: _a, cloudflare, playit: pl, ...settings } = store.settings;
     return {
       version: VERSION,
       docker: Boolean(info),
+      runtime: runtime.kind,
       platform: process.platform,
       host,
       suggestedLimits: defaultLimits(host),
@@ -201,7 +212,7 @@ export async function buildApp(deps: AppDeps = {}) {
 
   app.post<IdParams>("/api/servers/:id/kill", async (req) => {
     servers.get(req.params.id);
-    await docker.kill(req.params.id);
+    await runtime.kill(req.params.id);
     return { ok: true };
   });
 
@@ -209,8 +220,8 @@ export async function buildApp(deps: AppDeps = {}) {
     servers.get(req.params.id);
     const cmd = String(req.body?.command ?? "").replace(/^\//, "").trim();
     if (!cmd) throw new HttpError(400, "empty_command");
-    if (!(await docker.isRunning(req.params.id))) throw new HttpError(409, "server_offline");
-    const output = await docker.rcon(req.params.id, cmd);
+    if (!(await runtime.isRunning(req.params.id))) throw new HttpError(409, "server_offline");
+    const output = await runtime.rcon(req.params.id, cmd);
     servers.notePregenCommand(req.params.id, cmd);
     return { output };
   });
@@ -258,7 +269,7 @@ export async function buildApp(deps: AppDeps = {}) {
     const storage = await knownStorage(req.query.storage);
     const r = benchmarks.results(storage);
     if (!r) return { ready: false };
-    const host = hostInfo(await docker.info().catch(() => undefined));
+    const host = hostInfo(await runtime.info().catch(() => undefined));
     const type = (["PAPER", "FOLIA", "FABRIC", "FORGE"].includes(String(req.query.type)) ? req.query.type : "PAPER") as ServerType;
     const cps = chunksPerSecond(type, Number(req.query.cpus) || 2, host.cpus, r.cpuScore);
     return { ready: true, chunksPerSecond: cps, bytesPerChunk: BYTES_PER_CHUNK, diskMBps: r.diskMBps, freeBytes: await freeBytes(storage) };
@@ -274,9 +285,9 @@ export async function buildApp(deps: AppDeps = {}) {
     const all = await content.inspectAll(s);
     const items = all.filter((i) => i.commands.length > 0);
     let live: content.LiveCommand[] | null = null;
-    if (await docker.isRunning(s.id)) {
+    if (await runtime.isRunning(s.id)) {
       try {
-        live = await content.liveCommands(s, (c) => docker.rcon(s.id, c));
+        live = await content.liveCommands(s, (c) => runtime.rcon(s.id, c));
       } catch {
         live = null;
       }
@@ -292,7 +303,7 @@ export async function buildApp(deps: AppDeps = {}) {
     let stream: NodeJS.ReadableStream | undefined;
     const attach = async () => {
       try {
-        stream = await docker.logs(id, 300);
+        stream = await runtime.logs(id, 300);
         stream.on("data", (c: Buffer) => socket.readyState === 1 && socket.send(c.toString("utf8")));
         stream.on("end", () => setTimeout(() => socket.readyState === 1 && attach(), 2000));
       } catch {
@@ -337,7 +348,7 @@ export async function buildApp(deps: AppDeps = {}) {
     const installed = await modrinth.install(s, String(req.body?.projectId ?? ""));
     saveInstalled(s.id, installed);
     await servers.syncServicePorts(s.id).catch(() => false);
-    return { installed, restartNeeded: await docker.isRunning(s.id) };
+    return { installed, restartNeeded: await runtime.isRunning(s.id) };
   });
 
   app.delete<{ Params: { id: string; pid: string } }>("/api/servers/:id/projects/:pid", async (req) => {
@@ -345,7 +356,7 @@ export async function buildApp(deps: AppDeps = {}) {
     await modrinth.uninstall(s, req.params.pid);
     store.updateServer(s.id, (x) => (x.projects = x.projects.filter((p) => p.projectId !== req.params.pid)));
     await servers.syncServicePorts(s.id).catch(() => false);
-    return { ok: true, restartNeeded: await docker.isRunning(s.id) };
+    return { ok: true, restartNeeded: await runtime.isRunning(s.id) };
   });
 
   app.put<IdParams & { Body: { ports: Partial<ExtraPort>[] } }>("/api/servers/:id/ports", async (req) =>
@@ -368,7 +379,7 @@ export async function buildApp(deps: AppDeps = {}) {
     const s = servers.get(req.params.id);
     const updates = await modrinth.checkUpdates(s);
     for (const u of updates) saveInstalled(s.id, await modrinth.install(servers.get(s.id), u.projectId));
-    return { updated: updates.length, restartNeeded: updates.length > 0 && (await docker.isRunning(s.id)) };
+    return { updated: updates.length, restartNeeded: updates.length > 0 && (await runtime.isRunning(s.id)) };
   });
 
   // ---- Players ----
@@ -568,5 +579,5 @@ export async function buildApp(deps: AppDeps = {}) {
     });
   }
 
-  return { app, store, docker, servers, backups, playit };
+  return { app, store, runtime, servers, backups, playit, auth };
 }

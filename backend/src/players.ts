@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import fsp from "node:fs/promises";
 import path from "node:path";
-import type { DockerManager } from "./docker.js";
+import type { Runtime } from "./runtime.js";
 import { chownForServer, serverDir } from "./files.js";
 import { fetchJson } from "./http.js";
 import { isValidPlayerName, parsePlayerList } from "./minecraft.js";
@@ -52,7 +52,7 @@ async function lookupUuid(name: string) {
 }
 
 export class Players {
-  constructor(private docker: DockerManager) {}
+  constructor(private runtime: Runtime) {}
 
   /**
    * Who is online, for frequent polling. Uses the server-list ping, which
@@ -69,9 +69,9 @@ export class Players {
 
   /** Exact list of online players (via the "list" command). Used when the Players page opens. */
   async online(s: ServerConfig) {
-    if (!(await this.docker.isRunning(s.id))) return { online: 0, max: s.properties.maxPlayers, names: [] as string[] };
+    if (!(await this.runtime.isRunning(s.id))) return { online: 0, max: s.properties.maxPlayers, names: [] as string[] };
     try {
-      return parsePlayerList(await this.docker.rcon(s.id, "list")) ?? { online: 0, max: s.properties.maxPlayers, names: [] };
+      return parsePlayerList(await this.runtime.rcon(s.id, "list")) ?? { online: 0, max: s.properties.maxPlayers, names: [] };
     } catch {
       return { online: 0, max: s.properties.maxPlayers, names: [] };
     }
@@ -89,13 +89,13 @@ export class Players {
    */
   async change(s: ServerConfig, list: PlayerList, name: string, add: boolean) {
     if (!isValidPlayerName(name)) throw new HttpError(400, "invalid_player_name");
-    if (await this.docker.isRunning(s.id)) {
+    if (await this.runtime.isRunning(s.id)) {
       const cmd = {
         whitelist: add ? `whitelist add ${name}` : `whitelist remove ${name}`,
         ops: add ? `op ${name}` : `deop ${name}`,
         banned: add ? `ban ${name}` : `pardon ${name}`,
       }[list];
-      return this.docker.rcon(s.id, cmd);
+      return this.runtime.rcon(s.id, cmd);
     }
     const entries = await readList(s, list);
     const rest = entries.filter((e) => e.name.toLowerCase() !== name.toLowerCase());
@@ -114,7 +114,7 @@ export class Players {
 
   async kick(s: ServerConfig, name: string) {
     if (!isValidPlayerName(name)) throw new HttpError(400, "invalid_player_name");
-    return this.docker.rcon(s.id, `kick ${name}`);
+    return this.runtime.rcon(s.id, `kick ${name}`);
   }
 }
 

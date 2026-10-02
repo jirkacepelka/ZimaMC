@@ -2,7 +2,7 @@
 
 **Your own Minecraft server in a few clicks, for ZimaOS and Windows.**
 
-ZimaMC is a web app for [ZimaOS](https://www.zimaspace.com/) (and CasaOS), and a single `.exe` for Windows, that lets anyone create and run Minecraft Java servers without touching a terminal. The simple path is three steps: name, game, size. Everything else is behind **Expert mode**.
+ZimaMC is a web app for [ZimaOS](https://www.zimaspace.com/) (and CasaOS), and a regular Windows app, that lets anyone create and run Minecraft Java servers without touching a terminal. The simple path is three steps: name, game, size. Everything else is behind **Expert mode**.
 
 ![Dashboard](docs/screenshot-dashboard.png)
 
@@ -26,11 +26,10 @@ ZimaMC is a web app for [ZimaOS](https://www.zimaspace.com/) (and CasaOS), and a
 
 ## Install on Windows
 
-1. Install and start [Docker Desktop](https://www.docker.com/products/docker-desktop/).
-2. Download `ZimaMC.exe` from the [latest release](https://github.com/jirkacepelka/ZimaMC/releases/latest) and start it. Windows may warn about an unknown app (the file is not code-signed yet): choose **More info → Run anyway**.
-3. The web page opens at `http://localhost:8765`. Choose a password and create your first server.
+1. Download `ZimaMC-Setup-….exe` from the [latest release](https://github.com/jirkacepelka/ZimaMC/releases/latest) and run it. Windows may warn about an unknown app (the installer is not code-signed yet): choose **More info → Run anyway**.
+2. ZimaMC opens in its own window. Choose a password and create your first server.
 
-Keep the window open while you use ZimaMC; closing it only stops the web page, your Minecraft servers keep running in Docker. Your PC must stay on and awake for friends to join, which makes this a good way to try ZimaMC but not ideal for a permanent server. Data lives in `%APPDATA%\ZimaMC`. The page is only reachable from the same PC unless you set `HOST=0.0.0.0`. Forgot the password? Start `ZimaMC.exe --reset-password` from a terminal.
+That's all: no Docker, no terminal. ZimaMC downloads Java and the server software by itself and runs each server as a normal process. Closing the window keeps ZimaMC running in the tray next to the clock; **Quit** in the tray menu saves and stops the servers. ZimaMC starts with Windows (turn it off in the tray menu), updates itself from GitHub releases, and the tray menu can also reset a forgotten password. Your PC must stay on and awake for friends to join. Data lives in `%APPDATA%\ZimaMC`. When Windows Firewall asks about Java the first time a server starts, allow it, or players on other devices can't join.
 
 ## Install on ZimaOS
 
@@ -65,10 +64,11 @@ npm run dev          # backend on :8765, frontend on :5173 (proxies /api)
 npm test             # backend tests
 npm run typecheck
 npm run build        # production build
-npm run build:app    # single-file app (ZimaMC.exe on Windows) in dist-app/
+npm run build:desktop  # Windows installer in desktop/release/ (run on Windows)
+npm start --prefix desktop  # the desktop app from source (after npm run build)
 ```
 
-Docker must be running locally. By default data goes to `./data`; set `DATA_DIR` to change it.
+Docker must be running locally, unless you set `ZIMAMC_RUNTIME=native` to run servers as plain Java processes like the desktop app does. By default data goes to `./data`; set `DATA_DIR` to change it.
 
 | Variable | Default | Meaning |
 | --- | --- | --- |
@@ -77,6 +77,7 @@ Docker must be running locally. By default data goes to `./data`; set `DATA_DIR`
 | `HOST_DATA_DIR` | `DATA_DIR` | The same folder as the Docker host sees it (only needed if the paths differ) |
 | `MC_IMAGE` | `itzg/minecraft-server` | Image used for servers |
 | `HOST` | `0.0.0.0` (`127.0.0.1` on Windows) | Address the web UI listens on |
+| `ZIMAMC_RUNTIME` | `docker` (`native` on Windows) | `native` runs servers without Docker, downloading Java and the server jar itself |
 | `STORAGE_ROOTS` | – | Extra folders (comma-separated) to offer as disks |
 | `RESET_PASSWORD` | – | `true` removes the password on start (or start with `--reset-password`) |
 

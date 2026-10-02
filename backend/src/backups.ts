@@ -2,7 +2,7 @@ import fs from "node:fs";
 import fsp from "node:fs/promises";
 import path from "node:path";
 import * as tar from "tar";
-import type { DockerManager } from "./docker.js";
+import type { Runtime } from "./runtime.js";
 import { safeJoin, serverDir } from "./files.js";
 import { backupDir } from "./paths.js";
 import { copyTree, uniqueSize } from "./storage.js";
@@ -42,7 +42,7 @@ export class Backups {
 
   constructor(
     private store: Store,
-    private docker: DockerManager,
+    private runtime: Runtime,
   ) {}
 
   isRunning(id: string) {
@@ -87,12 +87,12 @@ export class Backups {
   async create(s: ServerConfig, auto = false) {
     if (this.running.has(s.id)) throw new HttpError(409, "backup_in_progress");
     this.running.add(s.id);
-    const live = await this.docker.isRunning(s.id);
+    const live = await this.runtime.isRunning(s.id);
     try {
       if (live) {
         // Make the world consistent on disk and pause autosave while we copy it.
-        await this.docker.rcon(s.id, "save-off").catch(() => {});
-        await this.docker.rcon(s.id, "save-all flush").catch(() => {});
+        await this.runtime.rcon(s.id, "save-off").catch(() => {});
+        await this.runtime.rcon(s.id, "save-all flush").catch(() => {});
       }
       await fsp.mkdir(backupDir(s.id), { recursive: true });
       const name = `${new Date().toISOString().replace(/[:.]/g, "-")}${auto ? "-auto" : ""}`;
@@ -101,7 +101,7 @@ export class Backups {
       if (auto) await this.prune(s);
       return file;
     } finally {
-      if (live) await this.docker.rcon(s.id, "save-on").catch(() => {});
+      if (live) await this.runtime.rcon(s.id, "save-on").catch(() => {});
       this.running.delete(s.id);
     }
   }
@@ -183,7 +183,7 @@ export class Backups {
 
   /** Replace the server's world and configs with a backup. The server must be stopped. */
   async restore(s: ServerConfig, file: string) {
-    if (await this.docker.isRunning(s.id)) throw new HttpError(409, "stop_server_first");
+    if (await this.runtime.isRunning(s.id)) throw new HttpError(409, "stop_server_first");
     const archive = this.pathOf(s.id, file);
     if (!fs.existsSync(archive)) throw new HttpError(404, "backup_not_found");
     const dir = serverDir(s.id);
@@ -210,7 +210,7 @@ export class Backups {
       if (!s.backup.everyHours) continue;
       const last = s.backup.lastAt ? Date.parse(s.backup.lastAt) : 0;
       if (Date.now() - last < s.backup.everyHours * 3600_000) continue;
-      if (!(await this.docker.isRunning(s.id))) continue;
+      if (!(await this.runtime.isRunning(s.id))) continue;
       await this.create(s, true).catch((e) => console.error(`[backup] ${s.name}:`, e));
     }
   }

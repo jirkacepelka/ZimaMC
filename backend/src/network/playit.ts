@@ -1,11 +1,10 @@
 import crypto from "node:crypto";
-import type { DockerManager } from "../docker.js";
-import { CONTAINER_PREFIX, PLAYIT_IMAGE, VERSION } from "../config.js";
+import { VERSION } from "../config.js";
+import type { Runtime } from "../runtime.js";
 import { fetchJson } from "../http.js";
 import { HttpError, type Store } from "../store.js";
 
 const API = "https://api.playit.gg";
-const AGENT_CONTAINER = `${CONTAINER_PREFIX}playit`;
 
 type ApiResult<T> = { status: "success"; data: T } | { status: "fail"; data: string } | { status: "error"; data: unknown };
 
@@ -35,7 +34,7 @@ export class Playit {
 
   constructor(
     private store: Store,
-    private docker: DockerManager,
+    private runtime: Runtime,
   ) {}
 
   get connected() {
@@ -80,31 +79,13 @@ export class Playit {
     return data.agent_id;
   }
 
-  /** Run the playit agent next to the Minecraft servers (host network, so it reaches their ports). */
+  /** Run the playit agent next to the Minecraft servers. */
   async startAgent() {
-    const docker = this.docker.docker;
-    if (!(await this.docker.hasImage(PLAYIT_IMAGE))) await this.docker.pull(PLAYIT_IMAGE);
-    try {
-      await docker.getContainer(AGENT_CONTAINER).remove({ force: true });
-    } catch {
-      /* not there */
-    }
-    const c = await docker.createContainer({
-      name: AGENT_CONTAINER,
-      Image: PLAYIT_IMAGE,
-      Env: [`SECRET_KEY=${this.secret}`],
-      Labels: { "zimamc.role": "playit" },
-      HostConfig: { NetworkMode: "host", RestartPolicy: { Name: "unless-stopped" } },
-    });
-    await c.start();
+    await this.runtime.startAgent(this.secret);
   }
 
-  async agentRunning() {
-    try {
-      return (await this.docker.docker.getContainer(AGENT_CONTAINER).inspect()).State.Running;
-    } catch {
-      return false;
-    }
+  agentRunning() {
+    return this.runtime.agentRunning();
   }
 
   async createTunnel(name: string, localPort: number) {
@@ -144,11 +125,7 @@ export class Playit {
   }
 
   async disconnect() {
-    try {
-      await this.docker.docker.getContainer(AGENT_CONTAINER).remove({ force: true });
-    } catch {
-      /* not running */
-    }
+    await this.runtime.removeAgent();
     delete this.store.settings.playit;
     this.store.save();
   }

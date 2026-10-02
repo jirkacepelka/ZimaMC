@@ -4,7 +4,7 @@ import dgram from "node:dgram";
 import net from "node:net";
 import path from "node:path";
 import { DATA_DIR } from "./config.js";
-import type { DockerManager, ServerStats, ServerStatus } from "./docker.js";
+import type { Runtime, ServerStats, ServerStatus } from "./runtime.js";
 import { dirSize, ensureDir, serverDir } from "./files.js";
 import { backupDir } from "./paths.js";
 import { SERVER_TYPES, contentKind, defaultProperties, parseChunkyProgress } from "./minecraft.js";
@@ -92,7 +92,7 @@ export class Servers {
 
   constructor(
     private store: Store,
-    private docker: DockerManager,
+    private runtime: Runtime,
     private players: Players,
     private playit: Playit,
   ) {}
@@ -227,17 +227,17 @@ export class Servers {
     this.store.save();
     if (portChanged) await this.refreshNetwork(s).catch(() => {});
     await this.balanceCpu();
-    return { server: s, restartNeeded: await this.docker.isRunning(id) };
+    return { server: s, restartNeeded: await this.runtime.isRunning(id) };
   }
 
   async remove(id: string, deleteFiles: boolean) {
     const s = this.get(id);
-    await this.docker.stop(id).catch(() => {});
-    await this.docker.remove(id);
+    await this.runtime.stop(id).catch(() => {});
+    await this.runtime.remove(id);
     await this.removeDomain(s).catch(() => {});
     if (s.tunnel) await this.playit.deleteTunnel(s.tunnel.tunnelId).catch(() => {});
     await closePort(s.port);
-    for (const p of s.extraPorts ?? []) await closePort(p.hostPort, p.protocol === "udp" ? "UDP" : "TCP");
+    for (const p of s.extraPorts ?? []) await closePort(this.publicPort(p), p.protocol === "udp" ? "UDP" : "TCP");
     this.store.data.servers = this.store.servers.filter((x) => x.id !== id);
     this.store.save();
     this.live.delete(id);
@@ -249,7 +249,7 @@ export class Servers {
 
   private async runningServers() {
     const out: ServerConfig[] = [];
-    for (const s of this.store.servers) if (await this.docker.isRunning(s.id)) out.push(s);
+    for (const s of this.store.servers) if (await this.runtime.isRunning(s.id)) out.push(s);
     return out;
   }
 
@@ -279,7 +279,7 @@ export class Servers {
       await this.syncServicePorts(id);
       this.setLive(id, { status: "starting" });
       try {
-        await this.docker.start(s);
+        await this.runtime.start(s);
       } catch (e) {
         this.setLive(id, { status: "offline" });
         if ((e as { statusCode?: number }).statusCode === 500 && /port is already allocated|address already in use/i.test(String(e))) {
@@ -292,11 +292,16 @@ export class Servers {
     await this.balanceCpu();
   }
 
+  /** Port an extra port is reachable on: Docker publishes it under hostPort, a plain process only has its own. */
+  private publicPort(p: ExtraPort) {
+    return this.runtime.mapsPorts ? p.hostPort : p.containerPort;
+  }
+
   /** Game port plus ports players' clients use (voice chat, Bedrock). Web maps stay in the home network. */
   private openRouterPorts(s: ServerConfig) {
     openPort(s.port).catch(() => {});
     for (const p of s.extraPorts ?? []) {
-      if (serviceById(p.service)?.kind === "game") openPort(p.hostPort, p.protocol === "udp" ? "UDP" : "TCP").catch(() => {});
+      if (serviceById(p.service)?.kind === "game") openPort(this.publicPort(p), p.protocol === "udp" ? "UDP" : "TCP").catch(() => {});
     }
   }
 
@@ -359,14 +364,14 @@ export class Servers {
       taken.add(key);
     }
     this.store.updateServer(id, (x) => (x.extraPorts = [...auto, ...manual]));
-    return { restartNeeded: await this.docker.isRunning(id) };
+    return { restartNeeded: await this.runtime.isRunning(id) };
   }
 
   /** Keep all running servers together within the global CPU limit. */
   async balanceCpu() {
     const running = await this.runningServers();
     const caps = effectiveCpus(running, this.store.settings.limits.cpus);
-    for (const [id, cpus] of caps) await this.docker.setCpus(id, cpus).catch(() => {});
+    for (const [id, cpus] of caps) await this.runtime.setCpus(id, cpus).catch(() => {});
     return caps;
   }
 
@@ -374,7 +379,7 @@ export class Servers {
     this.get(id);
     await this.exclusive(id, async () => {
       this.setLive(id, { status: "stopping" });
-      await this.docker.stop(id);
+      await this.runtime.stop(id);
       this.setLive(id, { status: "offline", stats: null });
     });
     await this.balanceCpu();
@@ -394,9 +399,9 @@ export class Servers {
   async refresh() {
     await Promise.all(
       this.store.servers.map(async (s) => {
-        const status = await this.docker.status(s.id);
+        const status = await this.runtime.status(s.id);
         const running = status === "online" || status === "starting" || status === "stopping";
-        const stats = running ? await this.docker.stats(s.id) : null;
+        const stats = running ? await this.runtime.stats(s.id) : null;
         const players = status === "online" ? await this.players.quickOnline(s) : { online: 0, max: s.properties.maxPlayers, names: [] };
         this.live.set(s.id, { status, stats, players });
         if (status !== "online") this.pregenResumed.delete(s.id);
@@ -404,7 +409,7 @@ export class Servers {
         else if (s.pregen?.state === "running" && !s.pregen.paused && !this.pregenResumed.has(s.id)) {
           // Chunky does not continue its task after a restart by itself (continue-on-restart is off by default).
           this.pregenResumed.add(s.id);
-          void this.docker.rcon(s.id, "chunky continue").catch((e) => console.error("[chunky]", e));
+          void this.runtime.rcon(s.id, "chunky continue").catch((e) => console.error("[chunky]", e));
         }
       }),
     );
@@ -418,8 +423,8 @@ export class Servers {
       const s = this.get(id);
       if (!s.pregen || s.pregen.state !== "pending") return;
       // The world is called "world" unless changed; Chunky falls back to the first world otherwise.
-      await this.docker.rcon(id, "chunky world world").catch(() => "");
-      const out = [await this.docker.rcon(id, `chunky radius ${s.pregen.radius}`), await this.docker.rcon(id, "chunky start")].join("\n");
+      await this.runtime.rcon(id, "chunky world world").catch(() => "");
+      const out = [await this.runtime.rcon(id, `chunky radius ${s.pregen.radius}`), await this.runtime.rcon(id, "chunky start")].join("\n");
       const failed = /unknown (or incomplete )?command|unknown command/i.test(out);
       this.store.updateServer(id, (x) => {
         if (x.pregen) x.pregen = { ...x.pregen, state: failed ? "failed" : "running", error: failed ? "chunky_missing" : undefined };
@@ -447,8 +452,8 @@ export class Servers {
   async pregenStatus(id: string) {
     const s = this.get(id);
     let progress = null;
-    if (await this.docker.isRunning(id)) {
-      progress = parseChunkyProgress(await this.docker.logTail(id, 400).catch(() => ""));
+    if (await this.runtime.isRunning(id)) {
+      progress = parseChunkyProgress(await this.runtime.logTail(id, 400).catch(() => ""));
       if (progress?.state === "finished" && s.pregen && s.pregen.state !== "done") this.store.updateServer(id, (x) => x.pregen && (x.pregen.state = "done"));
       if (progress?.state === "running" && s.pregen?.state === "pending") this.store.updateServer(id, (x) => x.pregen && (x.pregen.state = "running"));
     }
@@ -461,7 +466,7 @@ export class Servers {
   async moveServer(id: string, to: string) {
     const s = this.get(id);
     if (this.moves.get(id)?.state === "copying") throw new HttpError(409, "move_in_progress");
-    if (this.busy.has(id) || (await this.docker.isRunning(id))) throw new HttpError(409, "server_must_be_stopped");
+    if (this.busy.has(id) || (await this.runtime.isRunning(id))) throw new HttpError(409, "server_must_be_stopped");
     const base = await prepareBase(to);
     if (sameBase(base, s.storage)) return { job: null };
     const job: CopyJob = { state: "copying", copied: 0, total: 0 };
@@ -501,8 +506,8 @@ export class Servers {
     const live = this.live.get(s.id);
     return {
       ...s,
-      status: this.docker.pulling.has(s.id) ? "downloading" : (live?.status ?? "offline"),
-      downloadProgress: this.docker.pulling.get(s.id),
+      status: this.runtime.pulling.has(s.id) ? "downloading" : (live?.status ?? "offline"),
+      downloadProgress: this.runtime.pulling.get(s.id),
       stats: live?.stats ?? null,
       players: live?.players ?? { online: 0, max: s.properties.maxPlayers, names: [] },
       containerMemoryMB: containerMemoryMB(s.memoryMB),
@@ -516,7 +521,9 @@ export class Servers {
   /** Extra ports as the UI shows them: web maps get a link, game services an address. */
   services(s: ServerConfig) {
     const lan = this.store.settings.network.lanIp || lanIp() || "localhost";
-    return (s.extraPorts ?? []).map((p) => {
+    return (s.extraPorts ?? []).map((ep) => {
+      // Without Docker a plugin is reachable only on its own port.
+      const p = { ...ep, hostPort: this.publicPort(ep) };
       const svc = serviceById(p.service);
       return {
         ...p,
@@ -635,6 +642,10 @@ export class Servers {
   }
 
   async tunnelTick() {
+    // The desktop app's agent is a process of ZimaMC, not a container that Docker restarts.
+    if (this.playit.connected && this.store.servers.some((s) => s.tunnel) && !(await this.runtime.agentRunning())) {
+      await this.playit.startAgent().catch((e) => console.error("[playit]", e));
+    }
     for (const s of this.store.servers) {
       if (s.tunnel && !s.tunnel.address) {
         const address = await this.playit.tunnelAddress(s.tunnel.tunnelId).catch(() => undefined);
@@ -645,10 +656,11 @@ export class Servers {
 
   /** On boot: start servers marked auto-start that Docker did not already bring back. */
   async autoStart() {
+    await this.runtime.recover?.(this.store.servers).catch((e) => console.error("[recover]", e));
     // Pick up web maps and other add-ons installed before this version or by hand.
     for (const s of this.store.servers) await this.syncServicePorts(s.id).catch(() => false);
     for (const s of this.store.servers) {
-      if (s.autoStart && !(await this.docker.isRunning(s.id))) {
+      if (s.autoStart && !(await this.runtime.isRunning(s.id))) {
         await this.start(s.id).catch((e) => console.error(`[autostart] ${s.name}:`, e));
       }
       if (s.autoStart && this.store.settings.network.upnp) this.openRouterPorts(s);

@@ -86,7 +86,7 @@ export default function Dashboard() {
           )}
         </div>
       )}
-      {system?.docker && system.platform === "win32" && <div className="notice">{t("windows.stayOn")}</div>}
+      {system?.docker && system.platform === "win32" && <div className="notice">{t(system.runtime === "native" ? "windows.stayOnApp" : "windows.stayOn")}</div>}
       <div className="row">
         <div>
           <h1>{t("dashboard.title")}</h1>

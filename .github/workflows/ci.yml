@@ -5,11 +5,11 @@ on:
     branches: [main]
     tags: ["v*"]
   pull_request:
-  # Build the Windows app by hand and attach it to an existing release: gh workflow run, input "tag".
+  # Build the Windows app by hand and publish it as a release: gh workflow run, input "tag".
   workflow_dispatch:
     inputs:
       tag:
-        description: Release tag to attach ZimaMC.exe to
+        description: Release tag to publish the Windows installer under (v0.11.0)
         required: false
 
 jobs:
@@ -26,6 +26,13 @@ jobs:
       - run: npm test
       - run: npm run check-locales -w frontend
       - run: npm run build
+      - name: Desktop app (typecheck and bundle)
+        env:
+          ELECTRON_SKIP_BINARY_DOWNLOAD: "1"
+        run: |
+          npm ci --prefix desktop
+          npm run typecheck --prefix desktop
+          npm run build --prefix desktop
 
   image:
     # Publish the Docker image for ZimaOS on every push to main and on tags.
@@ -63,11 +70,12 @@ jobs:
           cache-to: type=gha,mode=max
 
   windows:
-    # The single-file Windows app. Built on every push; a version tag (v0.9.0) also publishes it as a release.
+    # The Windows app (installer). Built on every push; a version tag or the "tag" input also publishes a release,
+    # which the installed apps pick up as an automatic update.
     if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
     needs: test
     runs-on: windows-latest
-    timeout-minutes: 20
+    timeout-minutes: 45
     permissions:
       contents: write
     steps:
@@ -76,30 +84,37 @@ jobs:
         with:
           node-version: 22
           cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            desktop/package-lock.json
       - run: npm ci
+      - run: npm ci --prefix desktop
       - run: npm run build
-      - run: npm run build:app
-      - name: Smoke test
-        shell: pwsh
+      - name: Build the installer
         env:
-          PORT: "8798"
-          NO_BROWSER: "1"
-          DATA_DIR: ${{ runner.temp }}\zimamc-smoke
+          CSC_IDENTITY_AUTO_DISCOVERY: "false"
+        run: npm run dist --prefix desktop
+      - name: Servers without Docker (a real Paper server)
+        run: node desktop/scripts/smoke-native.mjs PAPER
+      - name: The app starts and shows ZimaMC
+        shell: pwsh
         run: |
-          $p = Start-Process -FilePath .\dist-app\ZimaMC.exe -PassThru -RedirectStandardOutput smoke.log
-          try {
-            for ($i = 0; $i -lt 30; $i++) {
-              try { $r = Invoke-RestMethod http://127.0.0.1:8798/api/status; break } catch { Start-Sleep 1 }
-            }
-            if (-not $r) { Get-Content smoke.log; throw "ZimaMC.exe did not answer" }
-            $r | ConvertTo-Json
-            $page = Invoke-WebRequest http://127.0.0.1:8798/ -UseBasicParsing
-            if ($page.Content -notmatch "<html") { throw "web interface missing" }
-          } finally { Stop-Process -Id $p.Id -Force }
+          $out = "$env:RUNNER_TEMP\smoke.json"
+          $env:ZIMAMC_SMOKE = $out
+          $env:DATA_DIR = "$env:RUNNER_TEMP\zimamc-app"
+          $p = Start-Process desktop\release\win-unpacked\ZimaMC.exe -PassThru
+          for ($i = 0; $i -lt 90 -and -not (Test-Path $out); $i++) { Start-Sleep 1 }
+          if (-not (Test-Path $out)) { Stop-Process -Id $p.Id -Force -ErrorAction SilentlyContinue; throw "the app did not open its window" }
+          Get-Content $out
+          if ((Get-Content $out -Raw) -notmatch '"title":"ZimaMC') { throw "unexpected page" }
+          if (-not $p.WaitForExit(60000)) { Stop-Process -Id $p.Id -Force; throw "the app did not quit" }
       - uses: actions/upload-artifact@v4
         with:
           name: ZimaMC-windows
-          path: dist-app/ZimaMC.exe
+          path: |
+            desktop/release/ZimaMC-Setup-*.exe
+            desktop/release/ZimaMC-Setup-*.exe.blockmap
+            desktop/release/latest.yml
       - name: Publish release
         if: startsWith(github.ref, 'refs/tags/v') || inputs.tag != ''
         shell: bash
@@ -107,8 +122,9 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ inputs.tag || github.ref_name }}
         run: |
+          files=(desktop/release/ZimaMC-Setup-*.exe desktop/release/ZimaMC-Setup-*.exe.blockmap desktop/release/latest.yml)
           if gh release view "$TAG" > /dev/null 2>&1; then
-            gh release upload "$TAG" dist-app/ZimaMC.exe --clobber
+            gh release upload "$TAG" "${files[@]}" --clobber
           else
-            gh release create "$TAG" dist-app/ZimaMC.exe --title "ZimaMC ${TAG#v}" --notes-file docs/release-notes.md
+            gh release create "$TAG" "${files[@]}" --title "ZimaMC ${TAG#v}" --notes-file docs/release-notes.md
           fi

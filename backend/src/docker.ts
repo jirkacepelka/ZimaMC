@@ -1,23 +1,21 @@
 import Docker from "dockerode";
 import path from "node:path";
 import { PassThrough, type Readable } from "node:stream";
-import { CONTAINER_PREFIX, IS_WINDOWS, MC_IMAGE, toHostPath } from "./config.js";
+import { CONTAINER_PREFIX, IS_WINDOWS, MC_IMAGE, PLAYIT_IMAGE, toHostPath } from "./config.js";
 import { serverDir } from "./paths.js";
 import { containerEnv, imageTag, plainText } from "./minecraft.js";
 import { containerMemoryMB } from "./resources.js";
+import type { Runtime, ServerStats, ServerStatus } from "./runtime.js";
 import type { ServerConfig } from "./store.js";
 
-export type ServerStatus = "offline" | "downloading" | "starting" | "online" | "stopping" | "crashed";
-
-export interface ServerStats {
-  cpuPercent: number;
-  memoryMB: number;
-  memoryLimitMB: number;
-}
+export type { ServerStats, ServerStatus } from "./runtime.js";
 
 export const containerName = (id: string) => `${CONTAINER_PREFIX}srv-${id}`;
+const AGENT_CONTAINER = `${CONTAINER_PREFIX}playit`;
 
-export class DockerManager {
+export class DockerManager implements Runtime {
+  readonly kind = "docker" as const;
+  readonly mapsPorts = true;
   docker: Docker;
   /** Image pulls in progress, by server id, with a 0-100 progress estimate. */
   pulling = new Map<string, number>();
@@ -231,6 +229,36 @@ export class DockerManager {
   async logTail(id: string, tail: number): Promise<string> {
     const raw = (await this.container(id).logs({ follow: false, stdout: true, stderr: true, tail })) as unknown as Buffer;
     return demux(Buffer.isBuffer(raw) ? raw : Buffer.from(String(raw)));
+  }
+
+  /** Run the playit agent next to the Minecraft servers (host network, so it reaches their ports). */
+  async startAgent(secretKey: string) {
+    if (!(await this.hasImage(PLAYIT_IMAGE))) await this.pull(PLAYIT_IMAGE);
+    await this.removeAgent();
+    const c = await this.docker.createContainer({
+      name: AGENT_CONTAINER,
+      Image: PLAYIT_IMAGE,
+      Env: [`SECRET_KEY=${secretKey}`],
+      Labels: { "zimamc.role": "playit" },
+      HostConfig: { NetworkMode: "host", RestartPolicy: { Name: "unless-stopped" } },
+    });
+    await c.start();
+  }
+
+  async agentRunning() {
+    try {
+      return (await this.docker.getContainer(AGENT_CONTAINER).inspect()).State.Running;
+    } catch {
+      return false;
+    }
+  }
+
+  async removeAgent() {
+    try {
+      await this.docker.getContainer(AGENT_CONTAINER).remove({ force: true });
+    } catch {
+      /* not there */
+    }
   }
 
   /** Every container ZimaMC created, including ones whose server no longer exists. */

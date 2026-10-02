@@ -52,7 +52,7 @@
   "login": {
     "title": "Log in",
     "submit": "Log in",
-    "forgot": "Forgot the password? In ZimaOS, open this app's settings, add the variable RESET_PASSWORD=true and restart the app. On Windows, start ZimaMC.exe from a terminal with --reset-password. You can then choose a new password (start normally afterwards)."
+    "forgot": "Forgot the password? On Windows, right-click the ZimaMC icon next to the clock and choose Forgot password. In ZimaOS, open this app's settings, add the variable RESET_PASSWORD=true and restart the app (remove the variable again afterwards). You can then choose a new password."
   },
   "limits": {
     "memory": "Memory (RAM) for all servers",
@@ -484,7 +484,8 @@
     "deleteTitle": "Delete {{name}}?",
     "deleteText": "The server, its worlds and its backups will be deleted. This can't be undone.",
     "deleteConfirm": "Delete forever",
-    "keepFiles": "Keep the world and backup files on disk"
+    "keepFiles": "Keep the world and backup files on disk",
+    "propertiesHint": "More server options are in server.properties on the Files tab. Fields ZimaMC manages (port, MOTD, players…) are overwritten on start."
   },
   "global": {
     "title": "Settings",
@@ -524,7 +525,7 @@
     "binary_file": "This file isn't text. Download it instead.",
     "not_found": "Not found.",
     "bad_request": "The request was invalid.",
-    "docker_unavailable": "ZimaMC can't reach Docker. On Windows, install and start Docker Desktop. On ZimaOS, make sure the app has access to /var/run/docker.sock.",
+    "docker_unavailable": "ZimaMC can't reach Docker. On ZimaOS, make sure the app has access to /var/run/docker.sock.",
     "network_error": "Couldn't reach {{url}}. Check the internet connection.",
     "download_failed": "The download failed. Try again later.",
     "versions_unavailable": "Couldn't load the list of Minecraft versions. Check the internet connection.",
@@ -570,7 +571,11 @@
     "invalid_radius": "Choose a radius between 100 and 30,000 blocks.",
     "chunky_install_failed": "Modrinth could not be reached.",
     "folder_not_found": "The folder {{path}} doesn't exist. Pick it with Browse… or check the path.",
-    "not_mounted": "ZimaMC can't reach {{path}}: only /DATA and the drives in /media are available to it. On ZimaOS, re-import ZimaMC with the latest docker-compose.yml so your drives are mounted."
+    "not_mounted": "ZimaMC can't reach {{path}}: only /DATA and the drives in /media are available to it. On ZimaOS, re-import ZimaMC with the latest docker-compose.yml so your drives are mounted.",
+    "version_unavailable": "Version {{version}} can't be downloaded for this server type. Choose another one in Settings.",
+    "forge_install_failed": "Installing Forge failed. The console has the details.",
+    "java_start_failed": "Java could not be started. Try starting the server again.",
+    "java_download_failed": "Java could not be downloaded. Check the internet connection."
   },
   "details": {
     "about": "Description",
@@ -609,7 +614,8 @@
   },
   "windows": {
     "getDocker": "Get Docker Desktop",
-    "stayOn": "ZimaMC is running on this PC: your servers are only online while it is switched on and awake. Docker Desktop has to be running."
+    "stayOn": "ZimaMC is running on this PC: your servers are only online while it is switched on and awake. Docker Desktop has to be running.",
+    "stayOnApp": "ZimaMC runs on this PC: servers are online only while it is on and not asleep. Closing the window keeps ZimaMC running in the tray next to the clock."
   },
   "storage": {
     "where": "Where to store it",

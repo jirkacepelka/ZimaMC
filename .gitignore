@@ -3,4 +3,5 @@ dist/
 data/
 *.log
 .DS_Store
-dist-app/
+desktop/release/
+desktop/build/

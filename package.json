@@ -1,8 +1,8 @@
 {
   "name": "zimamc",
-  "version": "0.10.1",
+  "version": "0.11.0",
   "private": true,
-  "description": "The simplest way to run Minecraft servers on ZimaOS",
+  "description": "The simplest way to run Minecraft servers on ZimaOS and Windows",
   "license": "MIT",
   "workspaces": [
     "backend",
@@ -11,13 +11,12 @@
   "scripts": {
     "dev": "npm run dev -w backend & npm run dev -w frontend",
     "build": "npm run build -w frontend && npm run build -w backend",
-    "build:app": "node scripts/build-app.mjs",
     "test": "npm test -w backend",
     "typecheck": "npm run typecheck -w backend && npm run typecheck -w frontend",
-    "start": "npm start -w backend"
+    "start": "npm start -w backend",
+    "build:desktop": "npm run build && npm run dist --prefix desktop"
   },
   "devDependencies": {
-    "esbuild": "^0.28.2",
-    "postject": "^1.0.0-alpha.6"
+    "esbuild": "^0.28.2"
   }
 }

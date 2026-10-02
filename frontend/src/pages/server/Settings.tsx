@@ -179,16 +179,22 @@ export default function Settings({ server, reload }: ServerTabProps) {
           {t("settings.jvmFlags")}
           <input id="set-jvm" className="mono" value={jvmFlags} placeholder="-XX:+UseG1GC" onChange={(e) => setJvmFlags(e.target.value)} />
         </label>
-        <label className="field">
-          {t("settings.extraEnv")}
-          <textarea id="set-env" rows={4} value={extraEnv} placeholder={"SPAWN_PROTECTION=0\nALLOW_FLIGHT=true"} onChange={(e) => setExtraEnv(e.target.value)} />
-        </label>
-        <p className="hint">
-          {t("settings.extraEnvHint")}{" "}
-          <a href="https://docker-minecraft-server.readthedocs.io/en/latest/configuration/server-properties/" target="_blank" rel="noreferrer">
-            {t("settings.docs")}
-          </a>
-        </p>
+        {system?.runtime === "native" ? (
+          <p className="hint">{t("settings.propertiesHint")}</p>
+        ) : (
+          <>
+            <label className="field">
+              {t("settings.extraEnv")}
+              <textarea id="set-env" rows={4} value={extraEnv} placeholder={"SPAWN_PROTECTION=0\nALLOW_FLIGHT=true"} onChange={(e) => setExtraEnv(e.target.value)} />
+            </label>
+            <p className="hint">
+              {t("settings.extraEnvHint")}{" "}
+              <a href="https://docker-minecraft-server.readthedocs.io/en/latest/configuration/server-properties/" target="_blank" rel="noreferrer">
+                {t("settings.docs")}
+              </a>
+            </p>
+          </>
+        )}
         <PortsEditor server={server} onSaved={reload} />
       </Expert>
 

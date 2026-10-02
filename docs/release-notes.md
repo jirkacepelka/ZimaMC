@@ -1,18 +1,19 @@
-## ZimaMC 0.10.1
+## ZimaMC 0.11
 
-**Fixed**
-- Chunky now continues pre-generating the world after a server restart. If you paused or cancelled it, it stays paused until you continue it.
+**ZimaMC for Windows is now a regular app.** Download **`ZimaMC-Setup-0.11.0.exe`** below and run it. Docker and the terminal are no longer needed: ZimaMC downloads Java and the server software itself and runs your servers as normal programs. Windows may show a "protected your PC" message because the installer is not code-signed yet: choose **More info → Run anyway**.
 
-## ZimaMC 0.10
+**New on Windows**
+- ZimaMC opens in its own window, with a Start menu and desktop shortcut.
+- Closing the window keeps ZimaMC running in the tray next to the clock, so servers stay online. **Quit** in the tray menu saves and stops them.
+- Starts with Windows (you can turn it off in the tray menu), so servers set to start automatically come back after a reboot.
+- Updates itself: new versions download in the background and install with one click.
+- Forgot the password? The tray menu can remove it.
+- When Windows Firewall asks about Java the first time a server starts, allow it so players on other devices can join.
 
-**Download `ZimaMC.exe` below** to run ZimaMC on Windows. It needs [Docker Desktop](https://www.docker.com/products/docker-desktop/). Windows may show a "protected your PC" message because the app is not code-signed yet: choose **More info → Run anyway**. On ZimaOS, update the app by importing the new `docker-compose.yml` (your data stays).
+Coming from 0.9 or 0.10 with Docker Desktop: your servers are in the same place (`%APPDATA%\ZimaMC`) and the new app picks them up. Stop them in the old version first, then you can close Docker Desktop for good.
 
-**New**
-- **Choose a disk for each server.** Pick it in the wizard, browse to any folder, and move a server to another disk later. Backups can live on a different disk. On ZimaOS, other drives (`/media`) and `/DATA` show up after re-importing the compose file, and paths copied from the ZimaOS Files app work.
-- **World pre-generation with Chunky.** Plugin and mod servers are offered Chunky as the last step of the wizard, with a suggested radius and estimates of disk space and time from a quick test of your machine. Progress, pause and cancel are on the server's overview, and the console cheat sheet lists Chunky's commands.
-- **You choose backups.** Turn automatic backups on or off when creating a server. Incremental backups are the default: unchanged files are shared between backups, so a big world takes its space once. Full `.tar.gz` backups are still one click away.
-- Plugin and mod settings open straight in the file editor, and the console has a command cheat sheet.
+**Also new**
+- You stay logged in after ZimaMC or the PC restarts (also on ZimaOS).
+- Chunky continues pre-generating the world after a server restart, unless you paused it.
 
-**Changed**
-- You set the maximum number of players yourself.
-- The performance limit is a budget: running servers may add up to more than it, but no single server can be bigger.
+On ZimaOS nothing changes: servers keep running in Docker as before. Update by importing the new `docker-compose.yml` (your data stays).
