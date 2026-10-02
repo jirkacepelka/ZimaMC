@@ -20,7 +20,10 @@ import { managedProperties, writeServerFiles } from "./properties.js";
 import { RconClient } from "./rcon.js";
 import { installServer, type InstallContext } from "./software.js";
 
-/** Aikar's G1 settings, which Paper recommends (the Docker image's USE_AIKAR_FLAGS). */
+/**
+ * Aikar's G1 settings, which Paper recommends (the Docker image's USE_AIKAR_FLAGS),
+ * without G1RSetUpdatingPauseIntervalMillis: Java 21 and newer refuse to start with it.
+ */
 const AIKAR_FLAGS = [
   "-XX:+UseG1GC",
   "-XX:+ParallelRefProcEnabled",
@@ -35,7 +38,6 @@ const AIKAR_FLAGS = [
   "-XX:G1MixedGCCountTarget=4",
   "-XX:InitiatingHeapOccupancyPercent=15",
   "-XX:G1MixedGCLiveThresholdPercent=90",
-  "-XX:G1RSetUpdatingPauseIntervalMillis=5000",
   "-XX:SurvivorRatio=32",
   "-XX:+PerfDisableSharedMem",
   "-XX:MaxTenuringThreshold=1",
@@ -44,6 +46,8 @@ const AIKAR_FLAGS = [
 ];
 
 const MAX_LINES = 2000;
+/** In the server's logs folder; replaced on every start. */
+export const CONSOLE_LOG = "zimamc-console.log";
 const STOP_TIMEOUT_MS = 90_000;
 /** A crashed server is started again this many times, like Docker's on-failure restart policy. */
 const MAX_RESTARTS = 3;
@@ -72,6 +76,21 @@ interface Proc {
   restarts: number;
   cpu?: { ms: number; at: number };
   exited: Promise<void>;
+}
+
+/** Java options for a server: heap, UTF-8 console, Aikar's flags for Paper, then the user's own. */
+export function jvmArgs(s: Pick<ServerConfig, "memoryMB" | "type" | "advanced">) {
+  const heap = Math.max(512, Math.round(s.memoryMB));
+  return [
+    `-Xms${Math.min(heap, Math.max(512, Math.round(heap / 2)))}M`,
+    `-Xmx${heap}M`,
+    // Older Java on Windows would otherwise write the console in the local code page.
+    "-Dfile.encoding=UTF-8",
+    "-Dstdout.encoding=UTF-8",
+    "-Dstderr.encoding=UTF-8",
+    ...(s.type === "PAPER" || s.type === "FOLIA" ? AIKAR_FLAGS : []),
+    ...splitArgs(s.advanced.jvmFlags ?? ""),
+  ];
 }
 
 export function splitArgs(s: string) {
@@ -136,6 +155,8 @@ export class NativeRuntime implements Runtime {
   private procs = new Map<string, Proc>();
   private lines = new Map<string, string[]>();
   private listeners = new Map<string, Set<(line: string) => void>>();
+  /** Console output of the current start, also on disk (for crashes before the server writes its own log). */
+  private consoleFiles = new Map<string, fs.WriteStream>();
   private stats_ = new ProcStats();
   private agent?: ChildProcess;
   private runDir: string;
@@ -151,6 +172,7 @@ export class NativeRuntime implements Runtime {
   // ---- Console output ----
 
   private emit(id: string, line: string) {
+    this.consoleFiles.get(id)?.write(line + "\n");
     let buf = this.lines.get(id);
     if (!buf) this.lines.set(id, (buf = []));
     buf.push(line);
@@ -225,7 +247,11 @@ export class NativeRuntime implements Runtime {
   private async prepareAndLaunch(s: ServerConfig) {
     if (!(await portFree(s.port))) throw new HttpError(409, "port_in_use", { port: s.port });
     const dir = serverDir(s.id);
-    await fsp.mkdir(dir, { recursive: true });
+    await fsp.mkdir(path.join(dir, "logs"), { recursive: true });
+    this.consoleFiles.get(s.id)?.end();
+    const file = fs.createWriteStream(path.join(dir, "logs", CONSOLE_LOG));
+    file.on("error", () => this.consoleFiles.delete(s.id));
+    this.consoleFiles.set(s.id, file);
     this.emit(s.id, `[ZimaMC] Starting ${s.name}…`);
 
     let java: string;
@@ -254,17 +280,7 @@ export class NativeRuntime implements Runtime {
     const rconInfo = { port: await freePort(), password: crypto.randomBytes(18).toString("base64url") };
     await writeServerFiles(dir, managedProperties(s, rconInfo));
 
-    const heap = Math.max(512, Math.round(s.memoryMB));
-    const jvm = [
-      `-Xms${Math.min(heap, Math.max(512, Math.round(heap / 2)))}M`,
-      `-Xmx${heap}M`,
-      // Older Java on Windows would otherwise write the console in the local code page.
-      "-Dfile.encoding=UTF-8",
-      "-Dstdout.encoding=UTF-8",
-      "-Dstderr.encoding=UTF-8",
-      ...(s.type === "PAPER" || s.type === "FOLIA" ? AIKAR_FLAGS : []),
-      ...splitArgs(s.advanced.jvmFlags ?? ""),
-    ];
+    const jvm = jvmArgs(s);
     const env: NodeJS.ProcessEnv = { ...process.env };
     for (const [k, v] of Object.entries(s.advanced.extraEnv ?? {})) if (/^[A-Z_][A-Z0-9_]*$/.test(k)) env[k] = String(v);
 
@@ -354,6 +370,8 @@ export class NativeRuntime implements Runtime {
 
   async remove(id: string) {
     await this.kill(id);
+    this.consoleFiles.get(id)?.end();
+    this.consoleFiles.delete(id);
     this.procs.delete(id);
     this.lines.delete(id);
   }
@@ -427,6 +445,7 @@ export class NativeRuntime implements Runtime {
 
   async shutdown() {
     await Promise.all([...this.procs.keys()].map((id) => this.stop(id).catch(() => {})));
+    for (const f of this.consoleFiles.values()) f.end();
     await this.removeAgent();
     this.stats_.close();
   }

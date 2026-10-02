@@ -36,9 +36,9 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 function consoleTail(id) {
   try {
-    return fs.readFileSync(path.join(dataDir, "servers", id, "logs", "latest.log"), "utf8").split("\n").slice(-60).join("\n");
+    return fs.readFileSync(path.join(dataDir, "servers", id, "logs", "zimamc-console.log"), "utf8").split("\n").slice(-80).join("\n");
   } catch {
-    return "(no log)";
+    return "(no console log)";
   }
 }
 

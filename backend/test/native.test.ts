@@ -5,7 +5,8 @@ import { afterAll, describe, expect, it } from "vitest";
 import { extractZip } from "../src/native/archive.js";
 import { javaMajorFor } from "../src/native/java.js";
 import { escapeValue, mergeProperties, readProperty } from "../src/native/properties.js";
-import { NativeRuntime, splitArgs } from "../src/native/runtime.js";
+import { spawnSync } from "node:child_process";
+import { jvmArgs, NativeRuntime, splitArgs } from "../src/native/runtime.js";
 import { serverDir } from "../src/paths.js";
 import { defaultProperties } from "../src/minecraft.js";
 import type { ServerConfig } from "../src/store.js";
@@ -147,6 +148,14 @@ describe("native helpers", () => {
     const out = mergeProperties(text, { motd: "Nový", "max-players": "5" });
     expect(out).toBe("#Minecraft server properties\nmotd=Nov\\u00fd\nspawn-protection=16\nmax-players=5\n");
     expect(readProperty(out, "motd")).toBe("Nový");
+  });
+
+  // Java refuses to start on a single unknown -XX option, so try the flags on a real Java when there is one.
+  it.skipIf(spawnSync("java", ["-version"]).status !== 0)("starts a real Java with the server's flags", () => {
+    const args = jvmArgs({ memoryMB: 1024, type: "PAPER", advanced: {} });
+    const r = spawnSync("java", [...args, "-version"], { encoding: "utf8" });
+    expect(r.stderr).not.toMatch(/Unrecognized|Could not create/);
+    expect(r.status).toBe(0);
   });
 
   it("splits Expert JVM flags", () => {

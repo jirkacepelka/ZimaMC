@@ -96,6 +96,8 @@ jobs:
         run: npm run dist --prefix desktop
       - name: Servers without Docker (a real Paper server)
         run: node desktop/scripts/smoke-native.mjs PAPER
+      - name: Servers without Docker (a real Fabric server)
+        run: node desktop/scripts/smoke-native.mjs FABRIC
       - name: The app starts and shows ZimaMC
         shell: pwsh
         run: |
