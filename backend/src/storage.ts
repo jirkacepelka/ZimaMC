@@ -18,6 +18,9 @@ export interface Location {
 
 const BASE_NAME = "ZimaMC";
 
+/** Where ZimaOS mounts drives. Overridable for tests. */
+const mediaDir = () => process.env.ZIMAMC_MEDIA_DIR ?? "/media";
+
 async function space(p: string) {
   try {
     const st = await fsp.statfs(p);
@@ -62,7 +65,7 @@ export function candidateRoots(): { root: string; explicit: boolean }[] {
       if (fs.existsSync(drive)) roots.push(drive);
     }
   } else {
-    for (const parent of ["/media", "/mnt"]) {
+    for (const parent of [mediaDir(), "/mnt"]) {
       try {
         for (const e of fs.readdirSync(parent, { withFileTypes: true })) if (e.isDirectory()) roots.push(path.join(parent, e.name));
       } catch {
@@ -118,7 +121,7 @@ const explicitRoots = () => (process.env.STORAGE_ROOTS ?? "").split(",").map((s)
 export function allowedRoots(): string[] {
   const extra = explicitRoots();
   if (IS_WINDOWS) return [...candidateRoots().filter((r) => !r.explicit).map((r) => r.root), ...extra];
-  if (inContainer()) return [...new Set(["/DATA", "/media", DATA_DIR, ...extra])].filter((r) => fs.existsSync(r));
+  if (inContainer()) return [...new Set(["/DATA", mediaDir(), DATA_DIR, ...extra])].filter((r) => fs.existsSync(r));
   return ["/", ...extra];
 }
 
@@ -143,7 +146,7 @@ export function resolveUserPath(input: string): string {
   const p = path.resolve(raw);
   const candidates = [p];
   if (!IS_WINDOWS) {
-    candidates.push(path.join("/media", p));
+    candidates.push(path.join(mediaDir(), p));
     const [, first, ...rest] = p.split("/");
     if (first === "ZimaOS-HD") candidates.push(path.join("/DATA", ...rest));
   }

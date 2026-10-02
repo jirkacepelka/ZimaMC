@@ -56,12 +56,13 @@ describe("storage", () => {
 
   it("understands paths copied from the ZimaOS Files app", () => {
     // ZimaOS shows /media/HDD-Storage/Games as /HDD-Storage/Games.
-    const disk = fs.mkdtempSync("/media/zimamc-test-");
+    const media = tmp();
+    process.env.ZIMAMC_MEDIA_DIR = media;
     try {
-      fs.mkdirSync(path.join(disk, "Jirka private"));
-      expect(resolveUserPath(`/${path.basename(disk)}/Jirka private`)).toBe(path.join(disk, "Jirka private"));
+      fs.mkdirSync(path.join(media, "HDD-Storage", "Jirka private"), { recursive: true });
+      expect(resolveUserPath("/HDD-Storage/Jirka private")).toBe(path.join(media, "HDD-Storage", "Jirka private"));
     } finally {
-      fs.rmSync(disk, { recursive: true, force: true });
+      delete process.env.ZIMAMC_MEDIA_DIR;
     }
   });
 
