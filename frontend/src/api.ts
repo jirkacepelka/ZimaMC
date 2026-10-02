@@ -69,7 +69,7 @@ export interface Server {
   /** Storage base the server lives in. */
   storagePath: string;
   move: { state: "copying" | "done" | "failed"; copied: number; total: number; error?: string } | null;
-  pregen?: { radius: number; state: "pending" | "running" | "done" | "failed"; error?: string };
+  pregen?: { radius: number; state: "pending" | "running" | "done" | "failed"; error?: string; paused?: boolean };
 }
 
 export interface SystemInfo {

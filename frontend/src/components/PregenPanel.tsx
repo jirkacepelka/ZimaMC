@@ -41,7 +41,7 @@ export function PregenPanel({ server }: { server: Server }) {
       ) : pg.state === "pending" ? (
         <p className="muted">{online ? t("pregen.starting") : t("pregen.waiting", { radius: pg.radius.toLocaleString() })}</p>
       ) : !online ? (
-        <p className="muted">{t("pregen.offline")}</p>
+        <p className="muted">{pg.paused ? t("pregen.paused") : t("pregen.offline")}</p>
       ) : p && p.percent !== undefined ? (
         <div className="stack-sm">
           <Meter value={p.percent} max={100} />

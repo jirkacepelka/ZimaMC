@@ -86,6 +86,8 @@ export class Servers {
   /** Running or finished moves to another disk, by server id ("backups" for the backups folder). */
   moves = new Map<string, CopyJob>();
   private pregenStarting = new Set<string>();
+  /** Servers whose unfinished pre-generation was already resumed during the current run. */
+  private pregenResumed = new Set<string>();
   private lastPublicIp?: string;
 
   constructor(
@@ -397,7 +399,13 @@ export class Servers {
         const stats = running ? await this.docker.stats(s.id) : null;
         const players = status === "online" ? await this.players.quickOnline(s) : { online: 0, max: s.properties.maxPlayers, names: [] };
         this.live.set(s.id, { status, stats, players });
-        if (status === "online" && s.pregen?.state === "pending") void this.startPregen(s.id);
+        if (status !== "online") this.pregenResumed.delete(s.id);
+        else if (s.pregen?.state === "pending") void this.startPregen(s.id);
+        else if (s.pregen?.state === "running" && !s.pregen.paused && !this.pregenResumed.has(s.id)) {
+          // Chunky does not continue its task after a restart by itself (continue-on-restart is off by default).
+          this.pregenResumed.add(s.id);
+          void this.docker.rcon(s.id, "chunky continue").catch((e) => console.error("[chunky]", e));
+        }
       }),
     );
   }
@@ -416,11 +424,23 @@ export class Servers {
       this.store.updateServer(id, (x) => {
         if (x.pregen) x.pregen = { ...x.pregen, state: failed ? "failed" : "running", error: failed ? "chunky_missing" : undefined };
       });
+      if (!failed) this.pregenResumed.add(id);
     } catch (e) {
       console.error("[chunky]", e);
     } finally {
       this.pregenStarting.delete(id);
     }
+  }
+
+  /** Remember whether the user paused or resumed Chunky, so a restart respects it. */
+  notePregenCommand(id: string, cmd: string) {
+    const m = cmd.trim().toLowerCase().match(/^(?:chunky:)?chunky\s+(pause|cancel|continue|start)\b/);
+    if (!m) return;
+    const paused = m[1] === "pause" || m[1] === "cancel";
+    this.store.updateServer(id, (x) => {
+      if (x.pregen) x.pregen = { ...x.pregen, paused, state: !paused && x.pregen.state !== "pending" ? "running" : x.pregen.state };
+    });
+    if (!paused) this.pregenResumed.add(id);
   }
 
   /** Pre-generation progress from the server log. */

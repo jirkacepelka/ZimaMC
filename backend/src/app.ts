@@ -210,7 +210,9 @@ export async function buildApp(deps: AppDeps = {}) {
     const cmd = String(req.body?.command ?? "").replace(/^\//, "").trim();
     if (!cmd) throw new HttpError(400, "empty_command");
     if (!(await docker.isRunning(req.params.id))) throw new HttpError(409, "server_offline");
-    return { output: await docker.rcon(req.params.id, cmd) };
+    const output = await docker.rcon(req.params.id, cmd);
+    servers.notePregenCommand(req.params.id, cmd);
+    return { output };
   });
 
   // ---- Storage (disks) ----

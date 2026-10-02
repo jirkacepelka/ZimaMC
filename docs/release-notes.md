@@ -1,3 +1,8 @@
+## ZimaMC 0.10.1
+
+**Fixed**
+- Chunky now continues pre-generating the world after a server restart. If you paused or cancelled it, it stays paused until you continue it.
+
 ## ZimaMC 0.10
 
 **Download `ZimaMC.exe` below** to run ZimaMC on Windows. It needs [Docker Desktop](https://www.docker.com/products/docker-desktop/). Windows may show a "protected your PC" message because the app is not code-signed yet: choose **More info → Run anyway**. On ZimaOS, update the app by importing the new `docker-compose.yml` (your data stays).

@@ -60,7 +60,7 @@ export interface ServerConfig {
   /** Storage base (folder with servers/ and backups/) on another disk; unset = the data folder. */
   storage?: string;
   /** World pre-generation with Chunky, chosen when the server was created. */
-  pregen?: { radius: number; state: "pending" | "running" | "done" | "failed"; error?: string };
+  pregen?: { radius: number; state: "pending" | "running" | "done" | "failed"; error?: string; paused?: boolean };
   createdAt: string;
 }
 

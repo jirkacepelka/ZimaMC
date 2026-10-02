@@ -331,6 +331,33 @@ describe("API", () => {
     expect(docker.sent.filter((c) => c.startsWith("chunky"))).toEqual([]);
   });
 
+  it("continues the pre-generation after a restart unless the user paused it", async () => {
+    const id = (await req("GET", "/api/servers")).json().servers[0].id;
+    const restart = async () => {
+      docker.running.delete(id);
+      await built.servers.refresh();
+      docker.running.add(id);
+      docker.sent = [];
+      await built.servers.refresh();
+      await built.servers.refresh();
+      return docker.sent.filter((c) => c.startsWith("chunky"));
+    };
+    built.store.updateServer(id, (x) => (x.pregen = { radius: 2500, state: "running" }));
+    expect(await restart()).toEqual(["chunky continue"]);
+
+    await req("POST", `/api/servers/${id}/command`, { command: "/chunky pause" });
+    expect(built.store.server(id)?.pregen?.paused).toBe(true);
+    expect(await restart()).toEqual([]);
+
+    await req("POST", `/api/servers/${id}/command`, { command: "chunky continue" });
+    expect(built.store.server(id)?.pregen?.paused).toBe(false);
+    expect(await restart()).toEqual(["chunky continue"]);
+
+    built.store.updateServer(id, (x) => x.pregen && (x.pregen.state = "done"));
+    expect(await restart()).toEqual([]);
+    built.store.updateServer(id, (x) => delete x.pregen);
+  });
+
   it("estimates Chunky after a silent benchmark", async () => {
     await req("POST", "/api/benchmark", {});
     let est = (await req("GET", "/api/pregen/estimate?type=PAPER&cpus=2")).json();
