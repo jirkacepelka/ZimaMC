@@ -78,9 +78,17 @@ try {
   const { server } = await api("GET", `/api/servers/${id}`);
   console.log(`stats → ${JSON.stringify(server.stats)}`);
 
+  // The API answers right away and the interface follows the status, so wait for it like the UI does.
   await api("POST", `/api/servers/${id}/stop`);
-  const { server: stopped } = await api("GET", `/api/servers/${id}`);
-  if (stopped.status !== "offline") throw new Error(`after stop the server is ${stopped.status}`);
+  const stopAt = Date.now();
+  for (;;) {
+    const { server: s } = await api("GET", `/api/servers/${id}`);
+    if (s.status === "offline") break;
+    if (s.status === "crashed") throw new Error("the server crashed while stopping");
+    if (Date.now() - stopAt > 120_000) throw new Error(`the server is still ${s.status} after 2 minutes`);
+    await sleep(1000);
+  }
+  console.log(`stopped in ${Math.round((Date.now() - stopAt) / 1000)}s`);
   if (!fs.existsSync(path.join(dataDir, "servers", id, "world", "level.dat"))) throw new Error("the world was not saved");
   console.log(`Native ${type} server: OK`);
   backend.kill();
